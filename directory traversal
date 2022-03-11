@@ -1,0 +1,23 @@
+# Directory traversal (also known as file path traversal) is a web security vulnerability that allows an attacker to read arbitrary files on the server that is running an application.
+# Consider an application read <img src="/loadImage?filename=218.png">
+# In the above case the application read from the following path /var/www/images/218.png
+# Attacker may use such opportunity to exploit the vulnerability by modify this email to "https://insecure-website.com/loadImage?filename=../../../etc/passwd"
+# This cause the application to read from the following path "/var/www/images/../../../etc/passwd"
+#  The sequence ../ is valid within a file path, and means to step up one level in the directory structure. The three consecutive ../ sequences step up from /var/www/images/ to the filesystem root, and so the file that is actually read is:
+/etc/passwd
+# tha is for Unix system
+# On window both ../ and ..\ are valid, and the standard equivalent is "https://insecure-website.com/loadImage?filename=..\..\..\windows\win.ini";
+# 
+
+
+
+           # Common obstacles to exploiting file path traversal vulnerabilities
+           
+ # If an application requires that the user-supplied filename must start with the expected base folder, such as /var/www/images, then it might be possible to include the required base folder followed by suitable traversal sequences.
+ For example: filename=/var/www/images/../../../etc/passwd
+ 
+ # If an application requires that the user-supplied filename must end with an expected file extension, such as .png, then it might be possible to use a null byte to effectively terminate the file path before the required extension.
+ For example: "filename=../../../etc/passwd%00.png"
+ 
+ # 
+ 
