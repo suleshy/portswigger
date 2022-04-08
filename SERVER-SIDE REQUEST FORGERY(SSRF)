@@ -1,0 +1,17 @@
+                                                        ## SSRF attacks against the server itself
+# EXAMPLE: stockApi=http://stock.weliketoshop.net:8080/product/stock/check%3FproductId%3D6%26storeId%3D1 AN ATTACKER CAN MODIFY THIS REQUEST TO SOMETHING LIKE
+    1.1: stockApi=http://localhost/admin
+    1.2: Use stockAPI parameter to deliver the same attack: stockAPI = http://localhost/admin/delete?username=carlos
+  
+                                                        ## SSRF attacks against other back-end systems
+
+# Another type of trust relationship that often arises with server-side request forgery is where the application server is able to interact with other back-end systems that are not directly reachable by users.
+# EXAMPLE: To solve the lab, use the stock check functionality to scan the internal 192.168.0.X range for an admin interface on port 8080, then use it to delete the user carlos. 
+
+
+                                                      ##Circumventing common SSRF defenses
+     #SSRF with blacklist-based input filters
+# Some applications block input containing hostnames like 127.0.0.1 and localhost, or sensitive URLs like /admin. In this situation, you can often circumvent the filter using various techniques: 
+# Using an alternative IP representation of 127.0.0.1, such as 2130706433, 017700000001, or 127.1.
+# Registering your own domain name that resolves to 127.0.0.1. You can use spoofed.burpcollaborator.net for this purpose
+# EXAMPLE: http://127.1/Admin CHANGE a TO %2561
