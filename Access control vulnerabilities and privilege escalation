@@ -27,4 +27,16 @@ With horizontal access controls, different users have access to a subset of reso
 -----> If a user can gain access to functionality that they are not permitted to access then this is vertical privilege escalation. 
 
 # 1.2 Unprotected functionality
------> 
+
+# 1.3 Unprotected admin functionality with unpredictable URL
+
+# 1.4 Parameter-based access control methods
+-----> EXAMPLE: https://insecure-website.com/login/home.jsp?admin=true
+                https://insecure-website.com/login/home.jsp?role=1
+                {"email":"szdiof1@gmail.com", "roleid": 2}
+                
+# 1.5 Broken access control resulting from platform misconfiguration
+-------> Some application frameworks support various non-standard HTTP headers that can be used to override the URL in the original request, such as X-Original-URL and X-Rewrite-URL.
+        EXAMPLE:   POST / HTTP/1.1
+                   X-Original-URL: /admin/deleteUser
+                    ...
