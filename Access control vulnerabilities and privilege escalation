@@ -21,5 +21,10 @@ With horizontal access controls, different users have access to a subset of reso
 
 # Context-dependent access controls restrict access to functionality and resources based upon the state of the application or the user's interaction with it. 
 
-           # Examples of broken access controls
+           # 1. Examples of broken access controls
    
+# 1.1 Vertical privilege escalation
+-----> If a user can gain access to functionality that they are not permitted to access then this is vertical privilege escalation. 
+
+# 1.2 Unprotected functionality
+-----> 
