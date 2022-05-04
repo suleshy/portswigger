@@ -40,3 +40,30 @@ With horizontal access controls, different users have access to a subset of reso
         EXAMPLE:   POST / HTTP/1.1
                    X-Original-URL: /admin/deleteUser
                     ...
+
+                          ## 1.6 Horizontal privilege escalation
+  Horizontal privilege escalation arises when a user is able to gain access to resources belonging to another user, instead of their own resources of that type.
+  For example, if an employee should only be able to access their own employment and payroll records, but can in fact also access the records of other employees, then this is horizontal privilege escalation. 
+   
+    In some applications, the exploitable parameter does not have a predictable value. 
+    For example, instead of an incrementing number, an application might use globally unique identifiers (GUIDs) to identify users.
+    
+                      ## 1.7 Horizontal to vertical privilege escalation
+ Often, a horizontal privilege escalation attack can be turned into a vertical privilege escalation, by compromising a more privileged user.
+ 
+                   ## 1.8 Insecure direct object references
+ Insecure direct object references (IDOR) are a subcategory of access control vulnerabilities.
+ 
+            ## 1.9  Access control vulnerabilities in multi-step processes
+ Many web sites implement important functions over a series of steps.
+ This is often done when a variety of inputs or options need to be captured, or when the user needs to review and confirm details before the action is performed.           
+ 
+                          1. Load form containing details for a specific user.
+                          2. Submit changes.
+                          3. Review the changes and confirm. 
+                          
+                 ## 1.10 Referer-based access control   
+  Some websites base access controls on the Referer header submitted in the HTTP request.
+  The Referer header is generally added to requests by browsers to indicate the page from which a request was initiated. 
+  
+  
