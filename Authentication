@@ -74,3 +74,5 @@ When submitting the verification code, the request uses this cookie to determine
                        verification-code=123456
                        
                        
+                # 3.Brute-forcing 2FA verification codes
+                
