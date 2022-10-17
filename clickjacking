@@ -61,3 +61,34 @@
                     <iframe src="https://0acb009004e04ce4c024c66300910047.web-security-academy.net/my-account"></iframe>
 
 
+
+                                 ## Clickbandit
+# Although you can manually create a clickjacking proof of concept as described above, this can be fairly tedious and time-consuming in practice. 
+When you're testing for clickjacking in the wild, we recommend using Burp's Clickbandit tool instead. 
+
+
+                              ## Clickjacking with prefilled form input
+ # Some websites that require form completion and submission permit prepopulation of form inputs using GET parameters prior to submission.
+ 
+ 
+                               ## Frame busting scripts
+# Clickjacking attacks are possible whenever websites can be framed.
+--> Therefore, preventative techniques are based upon restricting the framing capability for websites.
+
+#  A common client-side protection enacted through the web browser is to use frame busting or frame breaking scripts.
+
+# These can be implemented via proprietary browser JavaScript add-ons or extensions such as NoScript
+
+# Frame busting techniques are often browser and platform specific and because of the flexibility of HTML they can usually be circumvented by attackers.
+
+# An effective attacker workaround against frame busters is to use the HTML5 iframe sandbox attribute
+
+# When this is set with the allow-forms or allow-scripts values and the allow-top-navigation value is omitted then the frame buster script can be neutralized as the iframe cannot check whether or not it is the top window
+
+# <iframe id="victim_website" src="https://victim-website.com" sandbox="allow-forms"></iframe>
+
+# <iframe sandbox="allow-forms"
+src="YOUR-LAB-ID.web-security-academy.net/my-account?email=hacker@attacker-website.com"></iframe>
+
+
+
