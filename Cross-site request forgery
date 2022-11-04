@@ -99,8 +99,71 @@
                                                 </body>
                                             </html>
                                             
- #                                            
  
+                                                     ## Validation of CSRF token depends on token being present
+                                                     
+# Some applications correctly validate the token when it is present but skip the validation if the token is omitted. 
+# In this situation, the attacker can remove the entire parameter containing the token (not just its value) to bypass the validation and deliver a CSRF attack: 
+
+  Example:                                        POST /email/change HTTP/1.1
+                                                  Host: vulnerable-website.com
+                                                  Content-Type: application/x-www-form-urlencoded
+                                                  Content-Length: 25
+                                                  Cookie: session=2yQIDcpia41WrATfjPqvm9tOkDvkMvLm
+
+                                                  email=pwned@evil-user.net
+                                                  
+
+                                                 ## CSRF token is not tied to the user session
+                                                 
+# Some applications do not validate that the token belongs to the same session as the user who is making the request. 
+# Instead, the application maintains a global pool of tokens that it has issued and accepts any token that appears in this pool. 
+# In this situation, the attacker can log in to the application using their own account, obtain a valid token, and then feed that token to the victim user in their CSRF attack. 
+
+
+                                                ## CSRF token is tied to a non-session cookie
+# In a variation on the preceding vulnerability, some applications do tie the CSRF token to a cookie, but not to the same cookie that is used to track sessions.
+# This can easily occur when an application employs two different frameworks, one for session handling and one for CSRF protection, which are not integrated together: 
+
+
+                                            POST /email/change HTTP/1.1
+                                            Host: vulnerable-website.com
+                                            Content-Type: application/x-www-form-urlencoded
+                                            Content-Length: 68
+                                            Cookie: session=pSJYSScWKpmC60LpFOAHKixuFuM4uXWF; csrfKey=rZHCnSzEp8dbI6atzagGoSYyqJqTz5dv
+
+                                            csrf=RhV7yQDO0xcq9gLEah2WVbmuFqyOq7tY&email=wiener@normal-user.com
+
+
+# This situation is harder to exploit but is still vulnerable. If the web site contains any behavior that allows an attacker to set a cookie in a victim's browser, then an attack is possible.
+# The attacker can log in to the application using their own account, obtain a valid token and associated cookie, leverage the cookie-setting behavior to place their cookie into the victim's browser, and feed their token to the victim in their CSRF attack. 
+
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+           
+
+                                                  
+                                                  
+                                                  
+                                                  
  
  
  
