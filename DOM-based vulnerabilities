@@ -95,10 +95,18 @@ NOTE: Note that the browser's "View source" option won't work for DOM XSS testin
 # Instead you'll need to use the JavaScript debugger to determine whether and how your input is sent to a sink.
 
 
-                                               ## Exploiting DOM XSS with different sources and sinks
-#                                                
+                                             
                                                 ## Testing for DOM XSS using DOM Invader
                                                 
 # Identifying and exploiting DOM XSS in the wild can be a tedious process, often requiring you to manually trawl through complex, minified JavaScript.
 # If you use Burp's browser, however, you can take advantage of its built-in DOM Invader extension, which does a lot of the hard work for you.    
 
+
+                                               ## Exploiting DOM XSS with different sources and sinks
+# In principle, a website is vulnerable to DOM-based cross-site scripting if there is an executable path via which data can propagate from source to sink.
+
+<> The document.write sink works with script elements, so you can use a simple payload, such as the one below: 
+    ---> document.write('... <script>alert(document.domain)</script> ...');
+ 
+
+                                                    
