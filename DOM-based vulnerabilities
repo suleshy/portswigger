@@ -108,5 +108,18 @@ NOTE: Note that the browser's "View source" option won't work for DOM XSS testin
 <> The document.write sink works with script elements, so you can use a simple payload, such as the one below: 
     ---> document.write('... <script>alert(document.domain)</script> ...');
  
+ Example: "><svg onload=alert(1)>
+ 
+NOTE: however, that in some situations the content that is written to document.write includes some surrounding context that you need to take account of in your exploit.
+      For example, you might need to close some existing elements before using your JavaScript payload.  
+
+    product?productId=1&storeId="></select><img%20src=1%20onerror=alert(1)>
+
+<>  The innerHTML sink doesn't accept script elements on any modern browser, nor will svg onload events fire. This means you will need to use alternative elements like img or iframe.
+<>  Event handlers such as onload and onerror can be used in conjunction with these elements. For example: 
+
+Example: element.innerHTML='... <img src=1 onerror=alert(document.domain)> ...'
+
+
 
                                                     
