@@ -280,7 +280,95 @@ Payload: https://YOUR-LAB-ID.web-security-academy.net/post?postId=4&url=https://
 
 
 						## DOM-based cookie manipulation
+						
 #  DOM-based cookie-manipulation vulnerabilities arise when a script writes attacker-controllable data into the value of a cookie. 
 
 Payload: <iframe src="https://YOUR-LAB-ID.web-security-academy.net/product?productId=1&'><script>print()</script>" onload="if(!window.x)this.src='https://YOUR-LAB-ID.web-security-academy.net';window.x=1;">
 						
+
+
+							## DOM clobbering
+							
+# DOM clobbering is an advanced technique in which you inject HTML into a page to manipulate the DOM and ultimately change the behavior of JavaScript on the website.
+# The most common form of DOM clobbering uses an anchor element to overwrite a global variable, which is then used by the application in an unsafe way, such as generating a dynamic script URL. 
+
+# DOM clobbering is particularly useful in cases where XSS is not possible, but you can control some HTML on a page where the attributes id or name are whitelisted by the HTML filter.
+
+# The term clobbering comes from the fact that you are "clobbering" a global variable or property of an object and overwriting it with a DOM node or HTML collection instead.
+
+# For example, you can use DOM objects to overwrite other JavaScript objects and exploit unsafe names, such as submit, to interfere with a form's actual submit() function.
+
+
+							## How to exploit DOM-clobbering vulnerabilities
+# A common pattern used by JavaScript developers is: 
+
+     <> var someObject = window.someObject || {};
+
+<> If you can control some of the HTML on the page, you can clobber the someObject reference with a DOM node, such as an anchor. Consider the following code: 
+
+							<script>
+							    window.onload = function(){
+								let someObject = window.someObject || {};
+								let script = document.createElement('script');
+								script.src = someObject.url;
+								document.body.appendChild(script);
+							    };
+							</script>
+
+<> To exploit this vulnerable code, you could inject the following HTML to clobber the someObject reference with an anchor element: 
+
+# As the two anchors use the same ID, the DOM groups them together in a DOM collection. 
+# The DOM clobbering vector then overwrites the someObject reference with this DOM collection.
+# A name attribute is used on the last anchor element in order to clobber the url property of the someObject object, which points to an external script.
+
+
+   <> Example: 
+Go to one of the blog posts and create a comment containing the following HTML:
+
+# STEP1: <a id=defaultAvatar><a id=defaultAvatar name=avatar href="cid:&quot;onerror=alert(1)//">
+# STEP2: alert()
+
+<> The page for a specific blog post imports the JavaScript file loadCommentsWithDomPurify.js, which contains the following code:
+-------> let defaultAvatar = window.defaultAvatar || {avatar: '/resources/images/avatarDefault.svg'}
+
+<> The defaultAvatar object is implemented using this dangerous pattern containing the logical OR operator in conjunction with a global variable. This makes it vulnerable to DOM clobbering. 
+
+<> You can clobber this object using anchor tags. Creating two anchors with the same ID causes them to be grouped in a DOM collection.
+
+<> The name attribute in the second anchor contains the value "avatar", which will clobber the avatar property with the contents of the href attribute.
+
+<> Notice that the site uses the DOMPurify filter in an attempt to reduce DOM-based vulnerabilities.
+
+<> However, DOMPurify allows you to use the cid: protocol, which does not URL-encode double-quotes.
+
+<> This means you can inject an encoded double-quote that will be decoded at runtime.
+
+<> As a result, the injection described above will cause the defaultAvatar variable to be assigned the clobbered property {avatar: ‘cid:"onerror=alert(1)//’} the next time the page is loaded.
+
+<> When you make a second post, the browser uses the newly-clobbered global variable, which smuggles the payload in the onerror event handler and triggers the alert(). 
+
+
+### Another common technique is to use a form element along with an element such as input to clobber DOM properties.
+
+<>  For example, clobbering the attributes property enables you to bypass client-side filters that use it in their logic.
+
+<>  Although the filter will enumerate the attributes property, it will not actually remove any attributes because the property has been clobbered with a DOM node.
+
+<> As a result, you will be able to inject malicious attributes that would normally be filtered out. For example, consider the following injection: 
+
+EXAMPLE:   <form onclick=alert(1)><input id=attributes>Click me
+
+
+Example:
+STEP1:  Go to one of the blog posts and create a comment containing the following HTML: 
+-----> <form id=x tabindex=0 onfocus=print()><input id=attributes>
+
+STEP2:  Go to the exploit server and add the following iframe to the body: 
+------> <iframe src=https://YOUR-LAB-ID.web-security-academy.net/post?postId=3 onload="setTimeout(()=>this.src=this.src+'#x',500)">
+
+NOTE: Remember to change the URL to contain your lab ID and make sure that the postId parameter matches the postId of the blog post into which you injected the HTML in the previous step. 
+
+
+
+
+							
