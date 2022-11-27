@@ -173,3 +173,41 @@ STEP4: Visit the following URL in the browser to confirm that the alert() functi
 https://YOUR-LAB-ID.web-security-academy.net/?search=%22%3E%3Csvg%3E%3Canimatetransform%20onbegin=alert(1)%3E
 
                            
+
+                              ## XSS in HTML tag attributes
+
+# When the XSS context is into an HTML tag attribute value, you might sometimes be able to terminate the attribute value, close the tag, and introduce a new one. For example: 
+
+--------> "><script>alert(document.domain)</script>
+
+# More commonly in this situation, angle brackets are blocked or encoded, so your input cannot break out of the tag in which it appears. 
+
+#  Provided you can terminate the attribute value, you can normally introduce a new attribute that creates a scriptable context, such as an event handler. For example: 
+
+----------> " autofocus onfocus=alert(document.domain) x=" 
+
+# The above payload creates an onfocus event that will execute JavaScript when the element receives the focus, and also adds the autofocus attribute to try to trigger the onfocus event automatically without any user interaction. Finally, it adds x=" to gracefully repair the following markup. 
+
+Example #1:
+
+# This lab contains a reflected cross-site scripting vulnerability in the search blog functionality where angle brackets are HTML-encoded
+Payload: "onmouseover="alert(1)
+
+Example #2:
+
+# Sometimes the XSS context is into a type of HTML tag attribute that itself can create a scriptable context. Here, you can execute JavaScript without needing to terminate the attribute value.
+Payload:
+STEP1: Post a comment with a random alphanumeric string in the "Website" input, then use Burp Suite to intercept the request and send it to Burp Repeater. 
+STEP2: Make a second request in the browser to view the post and use Burp Suite to intercept the request and send it to Burp Repeater. 
+STEP3: Observe that the random string in the second Repeater tab has been reflected inside an anchor href attribute. 
+
+<a href="javascript:alert(document.domain)"> OR website=javascript:alert(document.domain)
+
+
+
+
+
+
+
+
+
