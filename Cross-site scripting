@@ -229,5 +229,24 @@ Example:
     On Linux: Alt+X
 
 
+                                                  
+                                                  ## XSS in hidden input fields
 
+# <input type="hidden" name="redacted" value="default" injection="xss" />
+# XSS in hidden inputs is frequently very difficult to exploit because typical JavaScript events like onmouseover and onfocus can't be triggered due to the element being invisible.
 
+# I decided to investigate further to see if it was possible to exploit this on a modern browser. I tried a bunch of stuff like autofocus, CSS tricks and other stuff.
+# Eventually I thought about access keys and wondered if the onclick event would be called on the hidden input when it activated via an access key. 
+# It most certainly does on Firefox! This means we can execute an XSS payload inside a hidden attribute, provided you can persuade the victim into pressing the key combination.
+# On Firefox Windows/Linux the key combination is ALT+SHIFT+X and on OS X it is CTRL+ALT+X. You can specify a different key combination using a different key in the access key attribute. Here is the vector:
+
+----> <input type="hidden" accesskey="X" onclick="alert(1)">
+
+# Please note if your reflection is repeated then the key combination will fail.
+# A workaround is to then inject another attribute that breaks the second reflection. e.g. " accesskey="x" onclick="alert(1)" x='
+# Update - Now works on Chrome and link/meta and any other elements
+# This technique now works in Chrome! It also works in link elements that means previously unexploitable XSS bugs in link elements where you only control attributes can be exploited using this technique.
+# For example you might have a link element with a rel attribute on canonical, if you inject the accesskey attribute with an onclick event then you have XSS. 
+
+                      <link rel="canonical" accesskey="X" onclick="alert(1)" />
+# 
