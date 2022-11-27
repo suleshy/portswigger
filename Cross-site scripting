@@ -206,7 +206,27 @@ STEP3: Observe that the random string in the second Repeater tab has been reflec
 
 
 
+                              ## Reflected XSS in canonical link tag
+ # You might encounter websites that encode angle brackets but still allow you to inject attributes.
+ # Sometimes, these injections are possible even within tags that don't usually fire events automatically, such as a canonical tag.
+ # You can exploit this behavior using access keys and user interaction on Chrome.
+ # Access keys allow you to provide keyboard shortcuts that reference a specific element.
+ # The accesskey attribute allows you to define a letter that, when pressed in combination with other keys (these vary across different platforms), will cause events to fire.
+ 
+                             
+Example: 
+# This lab reflects user input in a canonical link tag and escapes angle brackets. 
+# To solve the lab, perform a cross-site scripting attack on the home page that injects an attribute that calls the alert function. 
+#  Visit the following URL, replacing YOUR-LAB-ID with your lab ID: 
+---> https://YOUR-LAB-ID.web-security-academy.net/?%27accesskey=%27x%27onclick=%27alert(1)
 
+# This sets the X key as an access key for the whole page. When a user presses the access key, the alert function is called. 
+
+# To trigger the exploit on yourself, press one of the following key combinations:
+
+    On Windows: ALT+SHIFT+X
+    On MacOS: CTRL+ALT+X
+    On Linux: Alt+X
 
 
 
