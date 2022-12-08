@@ -283,7 +283,30 @@ Example:
                                                   ';alert(document.domain)//
                                                   '-alert(1)-'
                                                   
-#                                                   
+# Some applications attempt to prevent input from breaking out of the JavaScript string by escaping any single quote characters with a backslash.
+# A backslash before a character tells the JavaScript parser that the character should be interpreted literally, and not as a special character such as a string terminator.
+# In this situation, applications often make the mistake of failing to escape the backslash character itself.
+# This means that an attacker can use their own backslash character to neutralize the backslash that is added by the application.
+
+<> For example, suppose that the input: 
+---> ';alert(document.domain)//
+
+<> gets converted to: 
+---> \';alert(document.domain)//
+
+<>  You can now use the alternative payload: 
+----> \';alert(document.domain)//
+
+<> which gets converted to: 
+----> \\';alert(document.domain)//
+
+# Here, the first backslash means that the second backslash is interpreted literally, and not as a special character. 
+# This means that the quote is now interpreted as a string terminator, and so the attack succeeds. 
+
+
+
+
+
                                                   
                                                   
                                                   
