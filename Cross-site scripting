@@ -418,6 +418,13 @@ LAB:  Reflected XSS into a template literal with angle brackets, single, double 
 Payload: ${alert(1)}
 
 
+                                                    ## Client-side template injection
+                                                    
+# We'll describe how you can craft exploits that escape from the AngularJS sandbox, and how you can potentially use AngularJS features to bypass content security policy (CSP).
+
+# Naive use of the extremely popular JavaScript framework AngularJS is exposing numerous websites to Angular Template Injection.
+# This relatively low profile sibling of server-side template injection can be combined with an Angular sandbox escape to launch cross-site scripting (XSS) attacks on otherwise secure sites.
+
 
 
 
