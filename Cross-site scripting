@@ -729,9 +729,20 @@ Description: Please note that the intended solution to this lab is only possible
 Payload: https://0a4500a704ed86f1c0ef257700180049.web-security-academy.net/?search=%3Cscript%3Ealert%281%29%3C%2Fscript%3E&token=;script-src-elem%20%27unsafe-inline%27
 
 
+								## Protecting against clickjacking using CSP
+# The following directive will only allow the page to be framed by other pages from the same origin: 
+-----> frame-ancestors 'self'
+
+# The following directive will prevent framing altogether: 
+---> frame-ancestors 'none'
+
+# Using content security policy to prevent clickjacking is more flexible than using the X-Frame-Options header because you can specify multiple domains and use wildcards. For example: 
+---> frame-ancestors 'self' https://normal-website.com https://*.robust-website.com
 
 
 
+
+								
 
 
 
