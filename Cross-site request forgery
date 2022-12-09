@@ -186,7 +186,8 @@ Example:    /?search=test%0d%0aSet-Cookie:%20csrfKey=YOUR-KEY%3b%20SameSite=None
                           </body>
                         </html>
                         
-               ## Validation of Referer can be circumvented
+                                    ## Validation of Referer can be circumvented
+               
 # Some applications validate the Referer header in a naive way that can be bypassed. 
 ------> For example, if the application validates that the domain in the Referer starts with the expected value, then the attacker can place this as a subdomain of their own domain: 
 
@@ -197,6 +198,9 @@ Examples: http://vulnerable-website.com.attacker-website.com/csrf-attack
   Example: http://attacker-website.com/csrf-attack?vulnerable-website.com
   
 --------> Include the following HTML to suppress the Referer header: <meta name="referrer" content="no-referrer">
+
+
+                              ## 
 
 
 
