@@ -506,12 +506,10 @@ Payload: <iframe src=https://YOUR-LAB-ID.web-security-academy.net/ onload='this.
 
 
 
+						## Which sinks can lead to DOM-based web message vulnerabilities?
+						
+# As long as a website accepts web message data from an untrusted source due to a lack of adequate origin verification, any sinks that are used by the incoming message event listener could potentially lead to vulnerabilities. 
 
-
-
-
-			
-						# 
 						
 						
 					
