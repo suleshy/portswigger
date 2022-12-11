@@ -108,7 +108,38 @@ http://vulnerable-website.com/?greeting=data.username}}<tag>
 Hello Carlos<tag>
 
 Process 2: Identify
-# 
+
+# Once you have detected the template injection potential, the next step is to identify the template engine. 
+# Although there are a huge number of templating languages, many of them use very similar syntax that is specifically chosen not to clash with HTML characters
+# As a result, it can be relatively simple to create probing payloads to test which template engine is being used.
+
+# Simply submitting invalid syntax is often enough because the resulting error message will tell you exactly what the template engine is, and sometimes even which version.
+# For example, the invalid expression <%=foobar%> triggers the following response from the Ruby-based ERB engine: 
+
+(erb):1:in `<main>': undefined local variable or method `foobar' for main:Object (NameError)
+from /usr/lib/ruby/2.5.0/erb.rb:876:in `eval'
+from /usr/lib/ruby/2.5.0/erb.rb:876:in `result'
+from -e:4:in `<main>'
+
+# Otherwise, you'll need to manually test different language-specific payloads and study how they are interpreted by the template engine
+# Using a process of elimination based on which syntax appears to be valid or invalid, you can narrow down the options quicker than you might think.
+# A common way of doing this is to inject arbitrary mathematical operations using syntax from different template engines.
+# You can then observe whether they are successfully evaluated. To help with this process, you can use a decision tree similar to the following: 
+
+
+${7*7}---->a{*comment*}b---->Smart
+${7*7}---->a{*comment*}b---->${"z".join("ab")}---> Mako OR Unknown
+${7*7}----->{{7*7}}---->{{7*'7'}}
+
+# You should be aware that the same payload can sometimes return a successful response in more than one template language.
+# For example, the payload {{7*'7'}} returns 49 in Twig and 7777777 in Jinja2. 
+# Therefore, it is important not to jump to conclusions based on a single successful response. 
+
+
+
+Process 3: Exploit
+# After detecting that a potential vulnerability exists and successfully identifying the template engine, you can begin trying to find ways of exploiting it. 
+
 
 
 
