@@ -303,9 +303,49 @@ ${product.getClass().getProtectionDomain().getCodeSource().getLocation().toURI()
 
 
 
+                                           ## Constructing a custom exploit using developer-supplied objects
+                      
+# Some template engines run in a secure, locked-down environment by default in order to mitigate the associated risks as much as possible.
+# Although this makes it difficult to exploit such templates for remote code execution, developer-created objects that are exposed to the template can offer a further, less battle-hardened attack surface. 
+# However, while substantial documentation is usually provided for template built-ins, site-specific objects are almost certainly not documented at all.
+# Therefore, working out how to exploit them will require you to investigate the website's behavior manually to identify the attack surface and construct your own custom exploit accordingly. 
 
 
+Lab: Server-side template injection with a custom exploit
 
+STEP 1: Investigate the custom avatar functionality. Notice that when you upload an invalid image, the error message discloses a method called user.setAvatar(). Also take note of the file path /home/carlos/User.php. You will need this later. 
+
+Error:
+PHP Fatal error:  Uncaught Exception: Uploaded file mime type is not an image: text/plain in /home/carlos/User.php:28
+Stack trace:
+#0 /home/carlos/avatar_upload.php(19): User->setAvatar('/tmp/hash.txt', 'text/plain')
+#1 {main}
+  thrown in /home/carlos/User.php on line 28
+
+STEP 2:  Upload a valid image as your avatar and load the page containing your test comment. 
+STEP 3: In Burp Repeater, open the POST request for changing your preferred name and use the blog-post-author-display parameter to set an arbitrary file as your avatar: 
+
+user.setAvatar('/etc/passwd')
+
+STEP 4: Load the page containing your test comment to render the template.
+        Notice that the error message indicates that you need to provide an image MIME type as the second argument.
+        Provide this argument and view the comment again to refresh the template:
+        
+user.setAvatar('/etc/passwd','image/jpg')
+
+STEP 5: To read the file, load the avatar using GET /avatar?avatar=wiener. This will return the contents of the /etc/passwd file, confirming that you have access to arbitrary files. 
+
+STEP 6: Repeat this process to read the PHP file that you noted down earlier: 
+
+user.setAvatar('/home/carlos/User.php','image/jpg')
+
+STEP 7:  In the PHP file, Notice that you have access to the gdprDelete() function, which deletes the user's avatar. You can combine this knowledge to delete Carlos's file. 
+
+STEP 8:  First set the target file as your avatar, then view the comment to execute the template: 
+
+user.setAvatar('/home/carlos/.ssh/id_rsa','image/jpg')
+
+STEP 9:  Invoke the user.gdprDelete() method and view your comment again to solve the lab. 
 
 
 
