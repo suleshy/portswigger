@@ -125,6 +125,49 @@ Note
 Even if the token is unsigned, the payload part must still be terminated with a trailing dot.
 
 
+
+                                                        ## Brute-forcing secret keys using hashcat
+                                                        
+# You just need a valid, signed JWT from the target server and a wordlist of well-known secrets. You can then run the following command, passing in the JWT and wordlist as arguments: 
+
+----> hashcat -a 0 -m 16500 <jwt> <wordlist>
+
+JWTSecretList: https://github.com/wallarm/jwt-secrets/blob/master/jwt.secrets.list
+
+
+# Hashcat signs the header and payload from the JWT using each secret in the wordlist, then compares the resulting signature with the original one from the server.
+# If any of the signatures match, hashcat outputs the identified secret in the following format, along with various other details: 
+
+<jwt>:<identified-secret>
+
+# As hashcat runs locally on your machine and doesn't rely on sending requests to the server, this process is extremely quick, even when using a huge wordlist.
+
+
+Lab: JWT authentication bypass via weak signing key
+
+PART 1:
+
+STEP 1: In Burp Repeater, change the path to /admin and send the request. Observe that the admin panel is only accessible when logged in as the administrator user. 
+
+Part 2 - Generate a forged signing key
+
+STEP 1: Using Burp Decoder, Base64 encode the secret that you brute-forced in the previous section. 
+STEP 2: In Burp, go to the JWT Editor Keys tab and click New Symmetric Key. In the dialog, click Generate to generate a new key in JWK format. Note that you don't need to select a key size as this will automatically be updated later.
+STEP 3: Replace the generated value for the k property with the Base64-encoded secret.
+STEP 4: Click OK to save the key.
+
+
+Part 3 - Modify and sign the JWT
+
+STEP 1: Go back to the GET /admin request in Burp Repeater and switch to the extension-generated JSON Web Token message editor tab. 
+STEP 2: In the payload, change the value of the sub claim to administrator
+STEP 3: At the bottom of the tab, click Sign, then select the key that you generated in the previous section.
+STEP 4: Make sure that the Don't modify header option is selected, then click OK. The modified token is now signed with the correct signature
+STEP 5: Send the request and observe that you have successfully accessed the admin panel.
+
+
+
+                                                        
                                                        
                                                        
                                                        
