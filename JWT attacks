@@ -449,6 +449,50 @@ Note
 # In practice, you may need to experiment with different formatting in order for this attack to work.
 
 
+                                                  
+                                                      ## Performing an algorithm confusion attack
+                                                      
+#  An algorithm confusion attack generally involves the following high-level steps:  
+
+
+
+   1. Obtain the server's public key
+
+   2. Convert the public key to a suitable format
+
+   3. Create a malicious JWT with a modified payload and the alg header set to HS256.
+
+   4. Sign the token with HS256, using the public key as the secret.
+   
+   
+# In this section, we'll walk through this process in more detail, demonstrating how you can perform this kind of attack using Burp Suite.    
+
+<> Step 1 - Obtain the server's public key
+
+#  Servers sometimes expose their public keys as JSON Web Key (JWK) objects via a standard endpoint mapped to /jwks.json or /.well-known/jwks.json, for example.
+# These may be stored in an array of JWKs called keys. This is known as a JWK Set. 
+
+{
+    "keys": [
+        {
+            "kty": "RSA",
+            "e": "AQAB",
+            "kid": "75d0ef47-af89-47a9-9061-7c02a610d5ab",
+            "n": "o-yy1wpYmffgXBxhAUJzHHocCuJolwDqql75ZWuCQ_cb33K2vh9mk6GPM9gNN4Y_qTVX67WhsN3JvaFYw-fhvsWQ"
+        },
+        {
+            "kty": "RSA",
+            "e": "AQAB",
+            "kid": "d8fDFo-fS9-faS14a9-ASf99sa-7c1Ad5abA",
+            "n": "fc3f-yy1wpYmffgXBxhAUJzHql79gNNQ_cb33HocCuJolwDqmk6GPM4Y_qTVX67WhsN3JvaFYw-dfg6DH-asAScw"
+        }
+    ]
+}
+                                                      
+# Even if the key isn't exposed publicly, you may be able to extract it from a pair of existing JWTs. 
+
+<> Step 2 - Convert the public key to a suitable format
+
 
 
 
