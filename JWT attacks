@@ -370,6 +370,83 @@ Part 2 - Modify and sign the JWT
 
     In the response, find the URL for deleting Carlos (/admin/delete?username=carlos). Send the request to this endpoint to solve the lab.
 
+<> If the server stores its verification keys in a database, the kid header parameter is also a potential vector for SQL injection attacks.
+
+
+                                                      ## Other interesting JWT header parameters
+                                                      
+#  The following header parameters may also be interesting for attackers: 
+
+<> cty (Content Type) - 
+# Sometimes used to declare a media type for the content in the JWT payload. 
+# This is usually omitted from the header, but the underlying parsing library may support it anyway. 
+# If you have found a way to bypass signature verification, you can try injecting a cty header to change the content type to text/xml or application/x-java-serialized-object, which can potentially enable new vectors for XXE and deserialization attacks. 
+
+
+<> x5c (X.509 Certificate Chain) - 
+# Sometimes used to pass the X.509 public key certificate or certificate chain of the key used to digitally sign the JWT. 
+# This header parameter can be used to inject self-signed certificates, similar to the jwk header injection attacks discussed above. Due to the complexity of the X.509 format and its extensions, parsing these certificates can also introduce vulnerabilities. 
+# Details of these attacks are beyond the scope of these materials, but for more details, check out CVE-2017-2800 and CVE-2018-2633. 
+
+
+                                                      ## JWT algorithm confusion
+                                                      
+# Even if a server uses robust secrets that you are unable to brute-force, you may still be able to forge valid JWTs by signing the token using an algorithm that the developers haven't anticipated. This is known as an algorithm confusion attack.                                                      
+
+<> Algorithm confusion attacks
+
+# Algorithm confusion attacks (also known as key confusion attacks) occur when an attacker is able to force the server to verify the signature of a JSON web token (JWT) using a different algorithm than is intended by the website's developers.
+# If this case isn't handled properly, this may enable attackers to forge valid JWTs containing arbitrary values without needing to know the server's secret signing key. 
+
+                                
+                                                  ## Symmetric vs asymmetric algorithms
+ <> Symmetric                                                 
+# JWTs can be signed using a range of different algorithms. 
+# Some of these, such as HS256 (HMAC + SHA-256) use a "symmetric" key. 
+# This means that the server uses a single key to both sign and verify the token.
+# Clearly, this needs to be kept secret, just like a password.             
+
+<> Asymmetric
+# Other algorithms, such as RS256 (RSA + SHA-256) use an "asymmetric" key pair. 
+# This consists of a private key, which the server uses to sign the token, and a mathematically related public key that can be used to verify the signature. 
+# As the names suggest, the private key must be kept secret, but the public key is often shared so that anybody can verify the signature of tokens issued by the server. 
+
+
+                                                ## How do algorithm confusion vulnerabilities arise?
+                                                
+# Algorithm confusion vulnerabilities typically arise due to flawed implementation of JWT libraries.
+# Although the actual verification process differs depending on the algorithm used, many libraries provide a single, algorithm-agnostic method for verifying signatures. 
+# These methods rely on the alg parameter in the token's header to determine the type of verification they should perform. 
+
+# The following pseudo-code shows a simplified example of what the declaration for this generic verify() method might look like in a JWT library:
+
+
+function verify(token, secretOrPublicKey){
+    algorithm = token.getAlgHeader();
+    if(algorithm == "RS256"){
+        // Use the provided key as an RSA public key
+    } else if (algorithm == "HS256"){
+        // Use the provided key as an HMAC secret key
+    }
+}
+
+# Problems arise when website developers who subsequently use this method assume that it will exclusively handle JWTs signed using an asymmetric algorithm like RS256. 
+# Due to this flawed assumption, they may always pass a fixed public key to the method as follows: 
+
+publicKey = <public-key-of-server>;
+token = request.getCookie("session");
+verify(token, publicKey);
+
+# In this case, if the server receives a token signed using a symmetric algorithm like HS256, the library's generic verify() method will treat the public key as an HMAC secret. 
+# This means that an attacker could sign the token using HS256 and the public key, and the server will use the same public key to verify the signature. 
+
+
+
+Note
+
+# The public key you use to sign the token must be absolutely identical to the public key stored on the server. 
+# This includes using the same format (such as X.509 PEM) and preserving any non-printing characters like newlines. 
+# In practice, you may need to experiment with different formatting in order for this attack to work.
 
 
 
@@ -378,6 +455,17 @@ Part 2 - Modify and sign the JWT
 
 
 
+
+
+
+
+
+
+                                                
+                                                
+                                                
+                                                
+                                                
 
 
 
