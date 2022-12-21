@@ -184,8 +184,60 @@ Host: vulnerable-website.com
 # This discrepancy might allow you to pass arbitrary values via the "wrapped" Host header.                                                           
                                                           
                                                           
+<> Inject host override headers
+# Even if you can't override the Host header using an ambiguous request, there are other possibilities for overriding its value while leaving it intact. 
+# This includes injecting your payload via one of several other HTTP headers that are designed to serve just this purpose, albeit for more innocent use cases.
+
+# As we've already discussed, websites are often accessed via some kind of intermediary system, such as a load balancer or a reverse proxy. 
+# In this kind of architecture, the Host header that the back-end server receives may contain the domain name for one of these intermediary systems. 
+# This is usually not relevant for the requested functionality.
+
+# To solve this problem, the front-end may inject the X-Forwarded-Host header, containing the original value of the Host header from the client's initial request. 
+# For this reason, when an X-Forwarded-Host header is present, many frameworks will refer to this instead. 
+# You may observe this behavior even when there is no front-end that uses this header.
+
+# You can sometimes use X-Forwarded-Host to inject your malicious input while circumventing any validation on the Host header itself. 
                                                           
-                                                          
+GET /example HTTP/1.1
+Host: vulnerable-website.com
+X-Forwarded-Host: bad-stuff-here   
+
+# Although X-Forwarded-Host is the de facto standard for this behavior, you may come across other headers that serve a similar purpose, including: 
+
+
+    1. X-Host
+    2. X-Forwarded-Server
+    3. X-HTTP-Host-Override
+    4. Forwarded
+
+
+<>Tip
+# In Burp Suite, you can use the Param Miner extension's "Guess headers" function to automatically probe for supported headers using its extensive built-in wordlist.
+
+# From a security perspective, it is important to note that some websites, potentially even your own, support this kind of behavior unintentionally. 
+# This is usually because one or more of these headers is enabled by default in some third-party technology that they use. 
+
+
+
+                                                        ## How to exploit the HTTP Host header
+#  In this section, we'll provide some examples of common HTTP Host header attacks that you may be able to construct. 
+# We've also created some deliberately vulnerable websites so that you can see how these exploits work and put what you've learned to the test.
+
+# We'll cover the following examples: 
+
+<> Password reset poisoning
+#  Attackers can sometimes use the Host header for password reset poisoning attacks. 
+# Password reset poisoning is a technique whereby an attacker manipulates a vulnerable website into generating a password reset link pointing to a domain under their control. This behavior can be leveraged to steal the secret tokens required to reset arbitrary users' passwords and, ultimately, compromise their accounts. 
+
+
+
+
+
+
+
+
+
+
                                                           
                                                           
                                                           
