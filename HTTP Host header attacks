@@ -255,6 +255,30 @@ STEP 2: Send the POST /forgot-password request again, but this time use the port
 ----> Host: YOUR-LAB-ID.web-security-academy.net:'<a href="//YOUR-EXPLOIT-SERVER-ID.exploit-server.net/?      
 
 
+                                                ## Web cache poisoning via the Host header
+                                                
+# When probing for potential Host header attacks, you will often come across seemingly vulnerable behavior that isn't directly exploitable.                                                
+# For example, you may find that the Host header is reflected in the response markup without HTML-encoding, or even used directly in script imports.
+# Reflected, client-side vulnerabilities, such as XSS, are typically not exploitable when they're caused by the Host header.
+# There is no way for an attacker to force a victim's browser to issue an incorrect host in a useful manner. 
+
+# However, if the target uses a web cache, it may be possible to turn this useless, reflected vulnerability into a dangerous, stored one by persuading the cache to serve a poisoned response to other users. 
+# To construct a web cache poisoning attack, you need to elicit a response from the server that reflects an injected payload.
+# The challenge is to do this while preserving a cache key that will still be mapped to other users' requests.
+# If successful, the next step is to get this malicious response cached. It will then be served to any users who attempt to visit the affected page.
+# Standalone caches typically include the Host header in the cache key, so this approach usually works best on integrated, application-level caches. 
+# That said, the techniques discussed earlier can sometimes enable you to poison even standalone web caches. 
+
+
+<> Lab: Web cache poisoning via ambiguous requests
+# This lab is vulnerable to web cache poisoning due to discrepancies in how the cache and the back-end application handle ambiguous requests. An unsuspecting user regularly visits the site's home page. 
+# To solve the lab, poison the cache so the home page executes alert(document.cookie) in the victim's browser.
+# 
+
+
+                                                
+
+
 
 
 
