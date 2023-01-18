@@ -344,13 +344,19 @@ intranet.example.com: 10.0.0.132
 # If all else fails, you can still identify valid IP addresses by simply brute-forcing standard private IP ranges, such as 192.168.0.0/16. 
 
 
-CIDR notation
+<> CIDR notation
 
-IP address ranges are commonly expressed using CIDR notation, for example, 192.168.0.0/16.
+# IP address ranges are commonly expressed using CIDR notation, for example, 192.168.0.0/16.
 
-IPv4 addresses consist of four 8-bit decimal values known as "octets", each separated by a dot. The value of each octet can range from 0 to 255, meaning that the lowest possible IPv4 address would be 0.0.0.0 and the highest 255.255.255.255.
+# IPv4 addresses consist of four 8-bit decimal values known as "octets", each separated by a dot. The value of each octet can range from 0 to 255, meaning that the lowest possible IPv4 address would be 0.0.0.0 and the highest 255.255.255.255.
 
-In CIDR notation, the lowest IP address in the range is written explicitly, followed by another number that indicates how many bits from the start of the given address are fixed for the entire range. For example, 10.0.0.0/8 indicates that the first 8 bits are fixed (the first octet). In other words, this range includes all IP addresses from 10.0.0.0 to 10.255.255.255.
+# In CIDR notation, the lowest IP address in the range is written explicitly, followed by another number that indicates how many bits from the start of the given address are fixed for the entire range. For example, 10.0.0.0/8 indicates that the first 8 bits are fixed (the first octet). In other words, this range includes all IP addresses from 10.0.0.0 to 10.255.255.255.
+
+<> Lab: Routing-based SSRF
+
+# This lab is vulnerable to routing-based SSRF via the Host header. You can exploit this to access an insecure intranet admin panel located on an internal IP address. 
+
+# To solve the lab, access the internal admin panel located in the 192.168.0.0/24 range,
 
 
 
