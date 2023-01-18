@@ -307,6 +307,30 @@ GET /admin/
 Host: localhost
 
 
+                                                      ## Accessing internal websites with virtual host brute-forcing
+                                                      
+# Companies sometimes make the mistake of hosting publicly accessible websites and private, internal sites on the same server. 
+# Servers typically have both a public and a private IP address. 
+# As the internal hostname may resolve to the private IP address, this scenario can't always be detected simply by looking at DNS records:
+
+www.example.com: 12.34.56.78
+intranet.example.com: 10.0.0.132
+
+# In some cases, the internal site might not even have a public DNS record associated with it. 
+# Nonetheless, an attacker can typically access any virtual host on any server that they have access to, provided they can guess the hostnames. 
+
+# If they have discovered a hidden domain name through other means, such as information disclosure, they could simply request this directly. 
+# Otherwise, they can use tools like Burp Intruder to brute-force virtual hosts using a simple wordlist of candidate subdomains. '
+
+
+                                                    ## Routing-based SSRF
+#                                                     
+
+
+
+
+
+
 
 
 
