@@ -324,8 +324,33 @@ intranet.example.com: 10.0.0.132
 
 
                                                     ## Routing-based SSRF
-#                                                     
+                                                    
+# It is sometimes also possible to use the Host header to launch high-impact, routing-based SSRF attacks. These are sometimes known as "Host header SSRF attacks", and were explored in depth by PortSwigger Research in Cracking the lens: targeting HTTP's hidden attack-surface. 
+# Classic SSRF vulnerabilities are usually based on XXE or exploitable business logic that sends HTTP requests to a URL derived from user-controllable input. 
+# Routing-based SSRF, on the other hand, relies on exploiting the intermediary components that are prevalent in many cloud-based architectures. 
+# This includes in-house load balancers and reverse proxies. 
+# Although these components are deployed for different purposes, fundamentally, they receive requests and forward them to the appropriate back-end.
+# If they are insecurely configured to forward requests based on an unvalidated Host header, they can be manipulated into misrouting requests to an arbitrary system of the attacker's choice. 
 
+# These systems make fantastic targets. They sit in a privileged network position that allows them to receive requests directly from the public web, while also having access to much, if not all, of the internal network. 
+# This makes the Host header a powerful vector for SSRF attacks, potentially transforming a simple load balancer into a gateway to the entire internal network. 
+
+# You can use Burp Collaborator to help identify these vulnerabilities. 
+# If you supply the domain of your Collaborator server in the Host header, and subsequently receive a DNS lookup from the target server or another in-path system, this indicates that you may be able to route requests to arbitrary domains. 
+
+# Having confirmed that you can successfully manipulate an intermediary system to route your requests to an arbitrary public server, the next step is to see if you can exploit this behavior to access internal-only systems. 
+# To do this, you'll need to identify private IP addresses that are in use on the target's internal network.
+# In addition to any IP addresses that are leaked by the application, you can also scan hostnames belonging to the company to see if any resolve to a private IP address
+# If all else fails, you can still identify valid IP addresses by simply brute-forcing standard private IP ranges, such as 192.168.0.0/16. 
+
+
+CIDR notation
+
+IP address ranges are commonly expressed using CIDR notation, for example, 192.168.0.0/16.
+
+IPv4 addresses consist of four 8-bit decimal values known as "octets", each separated by a dot. The value of each octet can range from 0 to 255, meaning that the lowest possible IPv4 address would be 0.0.0.0 and the highest 255.255.255.255.
+
+In CIDR notation, the lowest IP address in the range is written explicitly, followed by another number that indicates how many bits from the start of the given address are fixed for the entire range. For example, 10.0.0.0/8 indicates that the first 8 bits are fixed (the first octet). In other words, this range includes all IP addresses from 10.0.0.0 to 10.255.255.255.
 
 
 
