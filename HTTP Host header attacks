@@ -298,7 +298,13 @@ STEP 2: Go to the exploit server and create a file at /resources/js/tracking.js 
 # This can expose an increased attack surface for other exploits. 
 
 
+<> Lab: Host header authentication bypass
+#  This lab makes an assumption about the privilege level of the user based on the HTTP Host header. 
 
+STEP 1: Access the admin dashboard as local user
+
+GET /admin/
+Host: localhost
 
 
 
