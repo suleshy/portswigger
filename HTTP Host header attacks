@@ -401,6 +401,16 @@ Content-Length: CORRECT
 csrf=YOUR-CSRF-TOKEN&username=carlos
 
 
+                                                         ## SSRF via a malformed request line
+                                                         
+# Custom proxies sometimes fail to validate the request line properly, which can allow you to supply unusual, malformed input with unfortunate results. 
+# For example, a reverse proxy might take the path from the request line, prefix it with http://backend-server, and route the request to that upstream URL. 
+# This works fine if the path starts with a / character, but what if starts with an @ character instead? 
+
+GET @private-intranet/example HTTP/1.1
+
+# The resulting upstream URL will be http://backend-server@private-intranet/example, which most HTTP libraries interpret as a request to access private-intranet with the username backend-server. 
+
 
 
 
